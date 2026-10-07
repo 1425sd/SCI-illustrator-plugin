@@ -1,5 +1,5 @@
 import { get, writable } from 'svelte/store';
-import type { Corner, Order, SizeMode } from '../../shared/host';
+import type { Corner, Order, RatioAnchor, SizeMode } from '../../shared/host';
 
 export interface Workspace {
   deltaX: string;
@@ -38,6 +38,9 @@ export interface Workspace {
   labelHistory: number[];
   labelSession: number | null;
   labelEditing: boolean;
+  imageRatio: number;
+  ratioAnchor: RatioAnchor;
+  pdfTextSize: number;
 }
 
 export const workspace = writable<Workspace>({
@@ -76,7 +79,10 @@ export const workspace = writable<Workspace>({
   labelStartCount: 1,
   labelHistory: [1],
   labelSession: null,
-  labelEditing: false
+  labelEditing: false,
+  imageRatio: 1.5,
+  ratioAnchor: 'height',
+  pdfTextSize: 6
 });
 
 export function labelPreview(template: string, start: number): string {

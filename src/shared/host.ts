@@ -12,6 +12,7 @@ export type AlignmentMode =
   | 'bottom';
 export type DistributionMode = Exclude<AlignmentMode, 'center'>;
 export type SizeMode = 'original' | 'auto' | 'custom';
+export type RatioAnchor = 'height' | 'width';
 
 /** Argument order matches the existing Illustrator algorithms. */
 export interface HostArguments {
@@ -88,6 +89,9 @@ export interface HostArguments {
   cancelPseudocolorLayerTargets: [string];
   applyPseudocolorLayers: [string];
   applyPaletteFill: [string];
+  cleanupPdfSelection: [];
+  changeSelectedTextSize: [number];
+  changeImageRatio: [number, RatioAnchor];
 }
 
 export type HostOperation = keyof HostArguments;

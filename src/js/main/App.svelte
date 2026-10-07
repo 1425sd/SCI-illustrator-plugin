@@ -31,6 +31,7 @@
   import SelectionPanel from '../components/SelectionPanel.svelte';
   import SettingsPanel from '../components/SettingsPanel.svelte';
   import AboutPanel from '../components/AboutPanel.svelte';
+  import PdfToolsPanel from '../components/PdfToolsPanel.svelte';
   import { actions } from '../services/actions';
 
   const standaloneZoom = isZoomWindow();
@@ -47,6 +48,7 @@
     { id: 'scalebar', component: ScalebarPanel },
     { id: 'zoom', component: ZoomPanel },
     { id: 'palettes', component: PalettePanel },
+    { id: 'pdf', component: PdfToolsPanel },
     { id: 'selection', component: SelectionPanel },
     { id: 'settings', component: SettingsPanel },
     { id: 'about', component: AboutPanel }

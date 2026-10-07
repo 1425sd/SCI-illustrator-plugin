@@ -30,6 +30,9 @@ declare function cancelPseudocolorLayerTargets(...args: unknown[]): string;
 declare function applyPseudocolorLayers(...args: unknown[]): string;
 declare function inspectScalebar(...args: unknown[]): string;
 declare function applyScalebar(...args: unknown[]): string;
+declare function cleanupPdfSelection(...args: unknown[]): string;
+declare function changeSelectedTextSize(...args: unknown[]): string;
+declare function changeImageRatio(...args: unknown[]): string;
 
 var methods: Record<string, (...args: unknown[]) => string> = {
   arrangeImages: arrangeImages,
@@ -59,7 +62,10 @@ var methods: Record<string, (...args: unknown[]) => string> = {
   cancelPseudocolorLayerTargets: cancelPseudocolorLayerTargets,
   applyPseudocolorLayers: applyPseudocolorLayers,
   inspectScalebar: inspectScalebar,
-  applyScalebar: applyScalebar
+  applyScalebar: applyScalebar,
+  cleanupPdfSelection: cleanupPdfSelection,
+  changeSelectedTextSize: changeSelectedTextSize,
+  changeImageRatio: changeImageRatio
 };
 
 $['com.achuan-2.illustrator_sci_toolbox'] = {

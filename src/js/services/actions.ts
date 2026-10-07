@@ -7,6 +7,7 @@ import type {
   AlignmentMode,
   Direction,
   DistributionMode,
+  RatioAnchor,
   SwapAnchor
 } from '../../shared/host';
 
@@ -17,9 +18,12 @@ const fail = (key: string): never => {
 };
 
 /** All click and live-edit handlers finish here; rejected promises never leak. */
-async function run(task: () => Promise<void>, quiet = false): Promise<void> {
+async function run<T>(
+  task: () => Promise<T>,
+  quiet = false
+): Promise<T | undefined> {
   try {
-    await task();
+    return await task();
   } catch (error) {
     const translate = get(t);
     const message =
@@ -29,6 +33,7 @@ async function run(task: () => Promise<void>, quiet = false): Promise<void> {
           translate('errors.details', [String(error)]);
     if (quiet) console.error(message);
     else window.alert(message);
+    return undefined;
   }
 }
 
@@ -269,6 +274,61 @@ async function addBorder(): Promise<void> {
   );
 }
 
+export interface PdfCleanupResult {
+  removedBackgrounds: number;
+  removedPaths: number;
+  removedGroups: number;
+  changedFonts?: number;
+  releasedMasks?: number;
+  ungroupedGroups?: number;
+  embeddedImages?: number;
+}
+
+export interface TextSizeResult {
+  changed: number;
+  size: number;
+}
+
+export interface ImageRatioResult {
+  changed: number;
+  ratio: number;
+  anchor: RatioAnchor;
+}
+
+async function cleanupPdfSelection(): Promise<PdfCleanupResult> {
+  const result = await bridge.call('cleanupPdfSelection');
+  try {
+    return JSON.parse(result) as PdfCleanupResult;
+  } catch (error) {
+    throw new HostError('errors.parsePdfResult', { message: String(error) });
+  }
+}
+
+async function changeImageRatio(): Promise<ImageRatioResult> {
+  const w = get(workspace);
+  const ratio = Number(w.imageRatio);
+  if (!Number.isFinite(ratio) || ratio <= 0) fail('errors.invalidImageRatio');
+  const result = await bridge.call('changeImageRatio', ratio, w.ratioAnchor);
+  try {
+    return JSON.parse(result) as ImageRatioResult;
+  } catch (error) {
+    throw new HostError('errors.parseRatioResult', { message: String(error) });
+  }
+}
+
+async function changeSelectedTextSize(): Promise<TextSizeResult> {
+  const size = Number(get(workspace).pdfTextSize);
+  if (size !== 5 && size !== 6) fail('errors.invalidTextSize');
+  const result = await bridge.call('changeSelectedTextSize', size);
+  try {
+    return JSON.parse(result) as TextSizeResult;
+  } catch (error) {
+    throw new HostError('errors.parseTextSizeResult', {
+      message: String(error)
+    });
+  }
+}
+
 function liveOffsets(): void {
   const w = get(workspace),
     s = get(settings);
@@ -358,6 +418,9 @@ export const actions = {
   pasteSpacing: (direction: Direction, anchor: boolean) =>
     run(() => pasteSpacing(direction, anchor)),
   addBorder: () => run(addBorder),
+  cleanupPdfSelection: () => run(cleanupPdfSelection),
+  changeSelectedTextSize: () => run(changeSelectedTextSize),
+  changeImageRatio: () => run(changeImageRatio),
   inspectZoom: async () => {
     const resultStr = await bridge.call('inspectZoomTarget');
     let data: any;
