@@ -42,7 +42,10 @@ const config: CEP_Config = {
       id: 'com.achuan-2.illustrator_sci_toolbox.zoom',
       mainPath: './main/index.html',
       panelDisplayName: '制作放大图',
-      autoVisible: true,
+      // The zoom editor is opened on demand from the main panel. Starting a
+      // second modeless CEP window here would initialize the JSX host twice
+      // on every Illustrator launch.
+      autoVisible: false,
       type: 'Modeless',
       width: 1150,
       height: 800,

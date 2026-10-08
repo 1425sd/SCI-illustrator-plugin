@@ -2698,6 +2698,7 @@ function applyZoomImages(payloadJson) {
         _zoomTrackedDocName = null;
         _zoomTrackedDocument = null;
         resetZoomTrackingHistory();
+        _zoomTrackingKnownEmpty = false;
     }
     return "Success";
 }
@@ -2932,6 +2933,10 @@ function cancelZoomTarget() {
 var _zoomTrackedGroups = [];
 var _zoomTrackedDocName = null;
 var _zoomTrackedDocument = null;
+// Once a poll confirms that the active document contains no zoom records,
+// avoid rescanning every page item until a zoom is created. applyZoomImages
+// clears this flag when it creates or replaces zoom artwork.
+var _zoomTrackingKnownEmpty = false;
 var _zoomUndoHistory = [];
 var _zoomRedoHistory = [];
 var _zoomLastTrackingState = null;
@@ -3267,12 +3272,25 @@ function removeDeletedZoomAssociations(index) {
 function syncZoomTracker() {
     if (app.documents.length === 0) return sciError("errors.noDocument");
     var doc = app.activeDocument;
+    if (_zoomTrackingKnownEmpty && _zoomTrackedDocument === doc) return "OK";
     // The modeless editor owns updates until confirm/cancel clears its tags.
     // Background polling must not rewrite the artwork behind its preview.
     if (findItemByTag(doc, "ILST_ZOOM_ACTIVE_TARGET")) return "OK";
     var docName = "";
     try { docName = doc.name; } catch (e) { return "OK"; }
     var index = readCurrentZoomRecords(doc);
+    var hasZoomRecords = false;
+    var hasZoomKeys = false;
+    for (var recordKey in index.records) { hasZoomRecords = true; break; }
+    for (var keyName in index.keys) { hasZoomKeys = true; break; }
+    if (!hasZoomRecords && !hasZoomKeys) {
+        _zoomTrackingKnownEmpty = true;
+        _zoomTrackedGroups = [];
+        _zoomTrackedDocName = docName;
+        _zoomTrackedDocument = doc;
+        resetZoomTrackingHistory();
+        return "OK";
+    }
     if (_zoomTrackedDocument !== doc || _zoomTrackedDocName !== docName) {
         _zoomTrackedDocument = doc;
         _zoomTrackedDocName = docName;

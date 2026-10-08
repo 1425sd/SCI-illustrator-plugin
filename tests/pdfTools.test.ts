@@ -100,7 +100,19 @@ test('PDF cleanup removes empty and full-page white paths but preserves clipping
   const empty = path([10, 90, 20, 80]);
   const clipping = path([0, 100, 100, 0], { clipping: true });
   const stroked = path([20, 80, 80, 20], { stroked: true, strokeWidth: 1 });
-  const root = group([stroked, clipping, empty, background]);
+  const vertical = path([50, 80, 50, 20], { stroked: true, strokeWidth: 1 });
+  const horizontal = path([20, 50, 80, 50], {
+    stroked: true,
+    strokeWidth: 1
+  });
+  const root = group([
+    stroked,
+    vertical,
+    horizontal,
+    clipping,
+    empty,
+    background
+  ]);
   const { document, call } = fixture([root]);
 
   const result = call('cleanupPdfSelection');
@@ -116,8 +128,66 @@ test('PDF cleanup removes empty and full-page white paths but preserves clipping
   assert.equal(root.pageItems.includes(empty), false);
   assert.equal(root.pageItems.includes(clipping), true);
   assert.equal(root.pageItems.includes(stroked), true);
+  assert.equal(root.pageItems.includes(vertical), true);
+  assert.equal(root.pageItems.includes(horizontal), true);
   assert.equal(document.selection.length, 1);
   assert.equal(document.selection[0], root);
+});
+
+test('PDF cleanup removes a white background matching a nested group bounds', () => {
+  const nestedBackground = path([0, 100, 100, 0], {
+    filled: true,
+    fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 }
+  });
+  const nestedArtwork = path([10, 90, 90, 10], {
+    stroked: true,
+    strokeWidth: 1
+  });
+  const nested = group([nestedArtwork, nestedBackground]);
+  const outerArtwork = path([-20, 120, 120, -20], {
+    stroked: true,
+    strokeWidth: 1
+  });
+  const root = group([nested, outerArtwork]);
+  const { call } = fixture([root]);
+
+  const result = call('cleanupPdfSelection');
+  assert.deepEqual(result, {
+    ok: true,
+    data: JSON.stringify({
+      removedBackgrounds: 1,
+      removedPaths: 0,
+      removedGroups: 0
+    })
+  });
+  assert.equal(nested.pageItems.includes(nestedBackground), false);
+  assert.equal(nested.pageItems.includes(nestedArtwork), true);
+  assert.equal(root.pageItems.includes(outerArtwork), true);
+});
+
+test('PDF cleanup keeps a lone white shape inside a wrapper group', () => {
+  const whiteShape = path([0, 100, 100, 0], {
+    filled: true,
+    fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 }
+  });
+  const wrapper = group([whiteShape]);
+  const outerArtwork = path([-20, 120, 120, -20], {
+    stroked: true,
+    strokeWidth: 1
+  });
+  const root = group([wrapper, outerArtwork]);
+  const { call } = fixture([root]);
+
+  const result = call('cleanupPdfSelection');
+  assert.deepEqual(result, {
+    ok: true,
+    data: JSON.stringify({
+      removedBackgrounds: 0,
+      removedPaths: 0,
+      removedGroups: 0
+    })
+  });
+  assert.equal(wrapper.pageItems.includes(whiteShape), true);
 });
 
 test('image ratio changes use the requested anchor and preserve object centers', () => {

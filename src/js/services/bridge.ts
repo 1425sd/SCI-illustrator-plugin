@@ -26,6 +26,10 @@ export class HostError extends Error {
   }
 }
 
+// CEP does not provide cancellation for evalScript. Without a timeout a
+// hung ExtendScript callback keeps the serialized bridge queue blocked forever.
+const EVAL_TIMEOUT_MS = 10_000;
+
 export function extensionPath(cep: CepAdapter): string {
   return decodeURI(cep.getSystemPath('extension'))
     .replace(/^file:\/\/\/(?=[a-z]:)/i, '')
@@ -41,14 +45,28 @@ export function createBridge(cep: CepAdapter | undefined) {
   const evaluate = (script: string) =>
     new Promise<string>((resolve, reject) => {
       if (!cep) return reject(new HostError('errors.hostUnavailable'));
+      let settled = false;
+      const timeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new HostError('errors.script'));
+      }, EVAL_TIMEOUT_MS);
+      const finish = (callback: () => void) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        callback();
+      };
       try {
         cep.evalScript(script, (result) => {
-          if (!result || result === 'EvalScript error.')
-            reject(new HostError('errors.script'));
-          else resolve(result);
+          finish(() => {
+            if (!result || result === 'EvalScript error.')
+              reject(new HostError('errors.script'));
+            else resolve(result);
+          });
         });
       } catch {
-        reject(new HostError('errors.script'));
+        finish(() => reject(new HostError('errors.script')));
       }
     });
 

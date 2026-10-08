@@ -213,7 +213,7 @@
   "selection.excludeText": "Exclude Text",
   "selection.excludeTextHint": "Exclude text frames from current selection",
   "pdf.cleanupTitle": "PDF Cleanup",
-  "pdf.cleanupDescription": "Select the top-level group of an imported PDF to clean clear backgrounds and unused paths, change editable text to Arial, and try to release masks, ungroup items and embed placed objects. Existing font sizes are preserved.",
+  "pdf.cleanupDescription": "Select the top-level group of an imported PDF to clean clear backgrounds and unused paths, change editable text to Arial, release masks, ungroup items and embed placed objects. Existing font sizes are preserved.",
   "pdf.cleanup": "Clean Selected PDF",
   "pdf.cleanupSuccess": "Removed {0} background object(s), {1} unused path(s), and {2} empty group(s).",
   "pdf.cleanupDetails": "Arial fonts: {0}; masks released: {1}; groups ungrouped: {2}; placed objects embedded: {3}.",

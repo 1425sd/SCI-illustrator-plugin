@@ -302,6 +302,33 @@ function pdfIsSolidFilled(item) {
   }
 }
 
+// A PDF may wrap a panel in several groups.  A background can therefore
+// match either the selected root bounds or the visible bounds of its own
+// immediate container.  The latter is what lets us remove nested white
+// panels without treating every white shape in the figure as a background.
+function pdfMatchesBackgroundBounds(item, rootBounds) {
+  var itemBounds = pdfBounds(item);
+  if (!itemBounds) return false;
+  if (rootBounds && pdfBoundsMatch(itemBounds, rootBounds)) return true;
+  try {
+    var parent = item.parent;
+    // A wrapper containing only one white shape is not enough evidence: it
+    // may simply be a white symbol or data mark.  Local-background matching
+    // requires the surrounding group to contain other artwork as well.
+    if (
+      !parent ||
+      parent.typename !== 'GroupItem' ||
+      !parent.pageItems ||
+      parent.pageItems.length < 2
+    )
+      return false;
+    var parentBounds = pdfBounds(parent);
+    return !!parentBounds && pdfBoundsMatch(itemBounds, parentBounds);
+  } catch (e) {
+    return false;
+  }
+}
+
 function pdfCompoundIsBackground(item) {
   try {
     if (!item.pathItems || !item.pathItems.length) return false;
@@ -325,7 +352,7 @@ function pdfIsBackground(item, rootBounds) {
     isPath =
       item.typename === 'PathItem' || item.typename === 'CompoundPathItem';
   } catch (e) {}
-  if (!isPath || !pdfBoundsMatch(pdfBounds(item), rootBounds)) return false;
+  if (!isPath || !pdfMatchesBackgroundBounds(item, rootBounds)) return false;
   var solid =
     item.typename === 'PathItem'
       ? pdfIsSolidFilled(item)
@@ -341,25 +368,17 @@ function pdfPathIsEmpty(item) {
   if (pdfIsProtected(item)) return false;
   try {
     if (item.typename === 'PathItem') {
-      if (!item.filled && !item.stroked) return true;
-      if (!item.pathPoints || item.pathPoints.length === 0) return true;
-      var size = pdfBoundsSize(item.geometricBounds);
-      return !size || size.width <= 0.0001 || size.height <= 0.0001;
+      // A stroked horizontal or vertical line can have zero geometric width
+      // or height while still being visible.  Paint state is the reliable
+      // distinction between an unused path and visible artwork.
+      return !item.filled && !item.stroked;
     }
     if (item.typename === 'CompoundPathItem') {
       if (!item.pathItems || item.pathItems.length === 0) return true;
       for (var i = 0; i < item.pathItems.length; i++) {
         var child = item.pathItems[i];
         if (child.clipping) return false;
-        if (child.filled || child.stroked) {
-          var childSize = pdfBoundsSize(child.geometricBounds);
-          if (
-            childSize &&
-            childSize.width > 0.0001 &&
-            childSize.height > 0.0001
-          )
-            return false;
-        }
+        if (child.filled || child.stroked) return false;
       }
       return true;
     }
@@ -400,9 +419,48 @@ function pdfVisitCleanup(item, rootBounds, isRoot, depth, candidates, groups) {
 
 function pdfStillInDocument(item) {
   try {
-    return !!item.parent;
+    if (!item || !item.parent || !item.parent.pageItems) return false;
+    var siblings = item.parent.pageItems;
+    for (var i = 0; i < siblings.length; i++) {
+      if (siblings[i] === item) return true;
+    }
   } catch (e) {
     return false;
+  }
+  return false;
+}
+
+// Releasing a clipping mask turns the mask path into an unpainted path.  It
+// was protected during the initial scan, so remove these newly exposed empty
+// paths in a second pass after mask release.
+function pdfRemoveReleasedEmptyPaths(items, stats) {
+  for (var i = 0; i < items.length; i++) {
+    try {
+      var item = items[i];
+      if (!pdfStillInDocument(item) || pdfIsProtected(item)) continue;
+      if (
+        (item.typename === 'PathItem' ||
+          item.typename === 'CompoundPathItem') &&
+        pdfPathIsEmpty(item)
+      ) {
+        item.remove();
+        stats.removedPaths++;
+      }
+    } catch (e) {}
+  }
+}
+
+function pdfRemoveEmptyGroups(groups, stats) {
+  for (var i = 0; i < groups.length; i++) {
+    try {
+      var group = groups[i].item;
+      if (!pdfStillInDocument(group) || pdfIsProtected(group)) continue;
+      var children = pdfChildren(group);
+      if (children && children.length === 0) {
+        group.remove();
+        stats.removedGroups++;
+      }
+    } catch (e) {}
   }
 }
 
@@ -471,20 +529,18 @@ function cleanupPdfSelection() {
     }
     for (var a = 0; a < saved.length; a++) pdfApplyArial(saved[a], stats);
     pdfReleaseMasks(doc, saved, stats, operationGroups);
+    var releasedPathStats = { removedPaths: 0 };
+    pdfRemoveReleasedEmptyPaths(allItems, releasedPathStats);
+    removedPaths += releasedPathStats.removedPaths;
     pdfUngroup(doc, saved, stats, operationGroups);
     pdfEmbedItems(allItems, stats);
     groups.sort(function (a, b) {
       return b.depth - a.depth;
     });
-    for (var g = 0; g < groups.length; g++) {
-      var group = groups[g].item;
-      if (!pdfStillInDocument(group) || pdfIsProtected(group)) continue;
-      var children = pdfChildren(group);
-      if (children && children.length === 0) {
-        group.remove();
-        removedGroups++;
-      }
-    }
+    var postStats = { removedPaths: 0, removedGroups: 0 };
+    pdfRemoveEmptyGroups(groups, postStats);
+    removedPaths += postStats.removedPaths;
+    removedGroups += postStats.removedGroups;
   } catch (removeError) {
     pdfRestoreSelection(doc, saved, allItems);
     return sciError('errors.pdfCleanupFailed', [removeError.message]);

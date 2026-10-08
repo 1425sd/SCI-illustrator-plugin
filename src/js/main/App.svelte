@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { get } from 'svelte/store';
   import {
     settings,
     persistSettings,
@@ -170,6 +171,45 @@
 
     readHash();
     let syncTimer: number | undefined;
+    let hostReady = false;
+    const stopSyncTimer = () => {
+      if (syncTimer === undefined) return;
+      window.clearInterval(syncTimer);
+      syncTimer = undefined;
+    };
+    const updateSyncTimer = () => {
+      // Hidden CEP panels should not keep asking Illustrator to scan the
+      // active document. Stop the interval entirely when auto update is off.
+      if (
+        !hostReady ||
+        document.visibilityState === 'hidden' ||
+        !get(settings).zoomAutoUpdate
+      ) {
+        stopSyncTimer();
+        return;
+      }
+      if (syncTimer !== undefined) return;
+      syncTimer = window.setInterval(() => {
+        if (document.visibilityState !== 'hidden') void actions.syncZoom();
+      }, 1000);
+    };
+    let previousAutoUpdate = get(settings).zoomAutoUpdate;
+    const onSettingsStoreUpdate = (value: ReturnType<typeof readSettings>) => {
+      const enabled = value.zoomAutoUpdate;
+      const wasEnabled = previousAutoUpdate;
+      previousAutoUpdate = enabled;
+      updateSyncTimer();
+      if (
+        hostReady &&
+        enabled &&
+        !wasEnabled &&
+        document.visibilityState !== 'hidden'
+      )
+        void actions.syncZoom();
+    };
+    const stopSettingsSubscription = settings.subscribe(onSettingsStoreUpdate);
+    const onVisibilityChange = () => updateSyncTimer();
+    document.addEventListener('visibilitychange', onVisibilityChange);
     const onSettingsUpdate = () => {
       const freshSettings = readSettings(localStorage);
       settings.set(freshSettings);
@@ -184,14 +224,16 @@
       void bridge
         .initialize()
         .then(() => {
-          syncTimer = window.setInterval(() => {
-            void actions.syncZoom();
-          }, 400);
+          hostReady = true;
+          updateSyncTimer();
         })
         .catch((error) => console.error('Host initialization failed', error));
     }
     return () => {
-      if (syncTimer) clearInterval(syncTimer);
+      hostReady = false;
+      stopSyncTimer();
+      stopSettingsSubscription();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       if (window.__adobe_cep__?.removeEventListener) {
         window.__adobe_cep__.removeEventListener(
           'com.achuan-2.illustrator_sci_toolbox.settingsUpdate',
