@@ -79,6 +79,16 @@ test('default Chinese, legacy settings and malformed storage normalize safely', 
   );
 });
 
+test('zoom auto update resets once for stored v2.5.0 defaults but later choices persist', () => {
+  const legacy = normalizeSettings({ zoomAutoUpdate: true });
+  assert.equal(legacy.zoomAutoUpdate, false);
+  assert.equal(legacy.zoomDefaultsVersion, defaults.zoomDefaultsVersion);
+  const optIn = normalizeSettings({ zoomAutoUpdate: true, zoomDefaultsVersion: defaults.zoomDefaultsVersion });
+  assert.equal(optIn.zoomAutoUpdate, true);
+  assert.deepEqual(normalizeSettings(optIn), optIn);
+  assert.equal(normalizeSettings({}).zoomAutoUpdate, false);
+});
+
 test('original label offsets are preserved and temporary inverted offsets migrate once', () => {
   const original = normalizeSettings({ labelOffsetX: -8, labelOffsetY: -8 });
   assert.equal(original.labelOffsetX, -8);

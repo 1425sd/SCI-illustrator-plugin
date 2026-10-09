@@ -905,7 +905,8 @@ test('legacy 1.8 scalebar defaults become 50 for new images while existing bars 
       options: { orientation: 'horizontal', lengthUm: 1.8, thickness: 2, color: '#ffffff',
         showText: true, fontColor: '#ffffff', fontSize: 8, bold: false, position: 'BR', autoGroup: true }
     };
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    // The scalebar poll now runs every second; wait past one full interval.
+    await new Promise((resolve) => setTimeout(resolve, 1200));
     assert.equal((panel.element('scale-length') as any).value, '1.8');
     assert.equal(panel.requests.filter((request) => request.operation === 'applyScalebar').length, 0);
   } finally { await panel.window.happyDOM.close(); }
@@ -1771,7 +1772,9 @@ test('standalone zoom window restores source units and edits represented length 
     },
     settings: {
       language: 'zh_CN',
-      zoomAutoUpdate: true
+      zoomAutoUpdate: true,
+      // The one-time polling migration must not strip an explicit opt-in.
+      zoomDefaultsVersion: 2
     },
     timestamp: Date.now()
   };

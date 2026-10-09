@@ -283,3 +283,40 @@ test('single-axis FOV validates only the requested orientation and survives note
     { width: 25, height: 0, unit: 'um', source: 'zoom' }
   );
 });
+
+test('scalebar polls return unchanged without walking the selected tree', () => {
+  let walks = 0;
+  const raster: any = { typename: 'RasterItem', uuid: 'raster-1' };
+  const group: any = {
+    typename: 'GroupItem',
+    uuid: 'group-1',
+    tags: [],
+    parent: null,
+    get pageItems() {
+      walks += 1;
+      return [raster];
+    }
+  };
+  raster.parent = group;
+  const doc: any = { typename: 'Document', name: 'fig1.ai', selection: [group] };
+  context.getTag = () => null;
+  context.addTag = () => undefined;
+  context.createZoomRecordKey = () => 'fresh-key';
+  context.app = { documents: [doc], activeDocument: doc };
+
+  const first = JSON.parse(String(context.inspectScalebar('')));
+  assert.equal(first.token, 'group-1');
+  assert.equal(first.signature, 'fig1.ai|group-1');
+  const walksAfterResolve = walks;
+  assert.ok(walksAfterResolve > 0);
+
+  // Same selected references: the poll must answer before any tree walk.
+  assert.equal(String(context.inspectScalebar(first.signature)), 'null');
+  assert.equal(walks, walksAfterResolve);
+
+  // A different selection resolves again from scratch.
+  doc.selection = [raster];
+  const second = JSON.parse(String(context.inspectScalebar(first.signature)));
+  assert.equal(second.token, 'raster-1');
+  assert.equal(String(context.inspectScalebar(second.signature)), 'null');
+});

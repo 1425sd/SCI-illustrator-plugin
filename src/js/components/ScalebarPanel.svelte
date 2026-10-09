@@ -206,7 +206,8 @@
     }
   }
   // Polling checks identity only. Unchanged selections do not reload drafts,
-  // reread TIFFs, write artwork or accumulate bridge requests.
+  // reread TIFFs, write artwork or accumulate bridge requests; the host skips
+  // its tree walk entirely when the selected references have not changed.
   $effect(() => {
     if (active) {
       void revision;
@@ -215,7 +216,7 @@
       });
       const timer = setInterval(() => {
         void inspect();
-      }, 350);
+      }, 1000);
       return () => {
         clearInterval(timer);
         void flushSave();

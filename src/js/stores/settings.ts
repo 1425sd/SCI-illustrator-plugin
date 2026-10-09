@@ -29,6 +29,7 @@ export interface Settings {
   zoomGuideLineExtent: string;
   zoomKeepSquare: boolean;
   zoomAutoUpdate: boolean;
+  zoomDefaultsVersion: number;
   pseudocolorLut: LayerColorId;
   pseudocolorKeepOriginal: boolean;
   pseudocolorDefaultsVersion: number;
@@ -61,6 +62,7 @@ export const defaults: Settings = {
   // Opt-in: background polling scans the document every second and freezes
   // large scientific figures. Users enable it on the zoom tab when needed.
   zoomAutoUpdate: false,
+  zoomDefaultsVersion: 2,
   pseudocolorLut: 'red',
   pseudocolorKeepOriginal: false,
   pseudocolorDefaultsVersion: 1,
@@ -80,6 +82,12 @@ export function normalizeSettings(value: unknown): Settings {
     Object.assign(result, { [key]: item });
   }
   result.scalebarStyle = normalizeScalebarStyle(saved.scalebarStyle);
+  // v2.5.0 shipped with zoom auto update enabled by default; that background
+  // polling froze large imported figures. Reset the stored choice once so the
+  // panel stops polling until the user opts back in on the zoom tab.
+  if (saved.zoomDefaultsVersion !== defaults.zoomDefaultsVersion)
+    result.zoomAutoUpdate = defaults.zoomAutoUpdate;
+  result.zoomDefaultsVersion = defaults.zoomDefaultsVersion;
   // Replace the legacy 1.8 um preference once; later explicit lengths persist.
   if (
     saved.scalebarDefaultsVersion !== defaults.scalebarDefaultsVersion &&

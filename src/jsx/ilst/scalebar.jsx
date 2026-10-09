@@ -285,16 +285,54 @@ function scaleDocumentKey(doc) {
     try { return doc.fullName.fsName; } catch (error) { return doc.name; }
 }
 
+// The panel polls this inspection frequently.  Unchanged selections are
+// detected by comparing the selected object references themselves, so a poll
+// returns before any tree walk — imported figures can hold thousands of page
+// items and resolving rasters on every poll froze Illustrator.
+var _scalebarPollDocument = null;
+var _scalebarPollSelection = null;
+var _scalebarPollSignature = "";
+
+function scalebarPollUnchanged(doc, previousSignature) {
+    try {
+        if (!previousSignature || _scalebarPollDocument !== doc) return false;
+        var selection = doc.selection;
+        if (!selection || !_scalebarPollSelection) return false;
+        if (selection.length !== _scalebarPollSelection.length) return false;
+        for (var i = 0; i < selection.length; i++) {
+            if (selection[i] !== _scalebarPollSelection[i]) return false;
+        }
+        return _scalebarPollSignature === previousSignature;
+    } catch (e) {
+        return false;
+    }
+}
+
+function scalebarRememberPoll(doc, selection, signature) {
+    _scalebarPollDocument = doc;
+    _scalebarPollSelection = [];
+    try {
+        for (var i = 0; i < selection.length; i++)
+            _scalebarPollSelection.push(selection[i]);
+    } catch (e) {
+        _scalebarPollSelection = null;
+    }
+    _scalebarPollSignature = signature;
+}
+
 function inspectScalebar(previousSignature) {
     var signature = "no-document", documentKey = "";
     try {
         if (!app.documents.length) throw new Error("errors.noDocument");
-        var doc = app.activeDocument, targets = scaleSelectionTargets(doc), tokens = [], inspected = [];
+        var doc = app.activeDocument;
+        if (scalebarPollUnchanged(doc, previousSignature)) return "null";
+        var targets = scaleSelectionTargets(doc), tokens = [], inspected = [];
         documentKey = scaleDocumentKey(doc);
         // A token pins the inspected object; changing selection cannot apply
         // the old form's FOV to another image. Tokens persist across CEP reloads.
         for (var i = 0; i < targets.length; i++) tokens.push(scaleTargetToken(doc, targets[i]));
         signature = documentKey + "|" + tokens.slice(0).sort().join("|");
+        scalebarRememberPoll(doc, doc.selection, signature);
         if (signature === previousSignature) return "null";
         for (var j = 0; j < targets.length; j++) inspected.push({token:tokens[j],fov:scaleReadFov(targets[j]),options:scaleReadOptions(targets[j])});
         return JSON.stringify({ token: tokens[0], signature: signature, documentKey: documentKey,
