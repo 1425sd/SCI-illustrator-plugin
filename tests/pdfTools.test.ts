@@ -190,6 +190,110 @@ test('PDF cleanup keeps a lone white shape inside a wrapper group', () => {
   assert.equal(wrapper.pageItems.includes(whiteShape), true);
 });
 
+test('PDF cleanup removes white fills at the bottom of the z-order without bounds matching', () => {
+  const artwork = path([0, 100, 100, 0], {
+    stroked: true,
+    strokeWidth: 1
+  });
+  const smallWhite = path([30, 70, 70, 30], {
+    filled: true,
+    fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 }
+  });
+  const root = group([artwork, smallWhite]);
+  const { call } = fixture([root]);
+
+  const result = call('cleanupPdfSelection');
+  assert.equal(result.ok, true);
+  const info = JSON.parse((result as { data: string }).data);
+  assert.equal(info.removedBackgrounds, 1);
+  assert.equal(root.pageItems.includes(smallWhite), false);
+  assert.equal(root.pageItems.includes(artwork), true);
+});
+
+test('PDF cleanup leaves white fills outside the bottom ten stack positions', () => {
+  const children: any[] = [
+    path([30, 70, 70, 30], {
+      filled: true,
+      fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 }
+    })
+  ];
+  for (let i = 0; i < 10; i++) {
+    children.push(
+      path([0, 100, 100, 0], { stroked: true, strokeWidth: 1 })
+    );
+  }
+  const whiteTop = children[0];
+  const root = group(children);
+  const { call } = fixture([root]);
+
+  const result = call('cleanupPdfSelection');
+  assert.deepEqual(result, {
+    ok: true,
+    data: JSON.stringify({
+      removedBackgrounds: 0,
+      removedPaths: 0,
+      removedGroups: 0
+    })
+  });
+  assert.equal(root.pageItems.includes(whiteTop), true);
+});
+
+test('PDF cleanup skips artwork under a locked ancestor instead of failing', () => {
+  const lockedWhite = path([0, 100, 100, 0], {
+    filled: true,
+    fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 }
+  });
+  const lockedMark = path([10, 90, 90, 10], {
+    stroked: true,
+    strokeWidth: 1
+  });
+  const locked = group([lockedMark, lockedWhite], { locked: true });
+  const artwork = path([-20, 120, 120, -20], {
+    stroked: true,
+    strokeWidth: 1
+  });
+  const root = group([artwork, locked]);
+  const { call } = fixture([root]);
+
+  const result = call('cleanupPdfSelection');
+  assert.deepEqual(result, {
+    ok: true,
+    data: JSON.stringify({
+      removedBackgrounds: 0,
+      removedPaths: 0,
+      removedGroups: 0
+    })
+  });
+  assert.equal(locked.pageItems.includes(lockedWhite), true);
+});
+
+test('PDF cleanup continues remaining candidates after one removal fails', () => {
+  const artwork = path([0, 100, 100, 0], {
+    stroked: true,
+    strokeWidth: 1
+  });
+  const stubborn = path([0, 100, 100, 0], {
+    filled: true,
+    fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 }
+  });
+  const removable = path([0, 100, 100, 0], {
+    filled: true,
+    fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 }
+  });
+  const root = group([artwork, stubborn, removable]);
+  stubborn.remove = () => {
+    throw new Error('对象无效');
+  };
+  const { call } = fixture([root]);
+
+  const result = call('cleanupPdfSelection');
+  assert.equal(result.ok, true);
+  const info = JSON.parse((result as { data: string }).data);
+  assert.equal(info.removedBackgrounds, 1);
+  assert.equal(root.pageItems.includes(stubborn), true);
+  assert.equal(root.pageItems.includes(removable), false);
+});
+
 test('image ratio changes use the requested anchor and preserve object centers', () => {
   const first = resizeable([0, 100, 40, 0]);
   const second = resizeable([100, 80, 160, 20]);

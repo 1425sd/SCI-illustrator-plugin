@@ -1,6 +1,10 @@
 // PDF cleanup and non-text image ratio tools.
 // Keep this file ES3-compatible; it is concatenated into the private host scope.
 
+// White page backgrounds sit at the bottom of a panel's z-order; this many
+// bottommost siblings of a selected root are searched for them.
+var PDF_BACKGROUND_Z_TAIL = 10;
+
 function pdfHasSciTag(item) {
   try {
     if (!item.tags) return false;
@@ -11,10 +15,36 @@ function pdfHasSciTag(item) {
   return false;
 }
 
+// An item's own flags say nothing about its containers: PDF imports often
+// lock or hide a wrapper group or layer, and Illustrator then refuses
+// remove() with error 1346 ("对象无效") even though the item itself looks
+// editable.
+function pdfAncestorBlocksEdit(item) {
+  try {
+    var node = item.parent;
+    while (node) {
+      var type = '';
+      try {
+        type = node.typename;
+      } catch (typeError) {
+        return true;
+      }
+      if (!type || type === 'Document') return false;
+      if (node.locked) return true;
+      if (type === 'Layer' && node.visible === false) return true;
+      node = node.parent;
+    }
+  } catch (e) {
+    return true;
+  }
+  return false;
+}
+
 function pdfIsProtected(item) {
   try {
     if (item.clipping || item.guides || item.hidden || item.locked) return true;
   } catch (e) {}
+  if (pdfAncestorBlocksEdit(item)) return true;
   return pdfHasSciTag(item);
 }
 
@@ -92,10 +122,11 @@ function pdfIsClippingGroup(item) {
 
 function pdfCanEdit(item) {
   try {
-    return !item.hidden && !item.locked && !pdfHasSciTag(item);
+    if (item.hidden || item.locked || pdfHasSciTag(item)) return false;
   } catch (e) {
     return false;
   }
+  return !pdfAncestorBlocksEdit(item);
 }
 
 function pdfRunMenuOnItem(doc, item, command) {
@@ -364,6 +395,41 @@ function pdfIsBackground(item, rootBounds) {
   return true;
 }
 
+// The bounds-matching rules above stay conservative on purpose.  Real PDF
+// panels also stack plain white rectangles at the bottom of the z-order, so
+// any white-filled, unstroked path among the bottommost siblings of a
+// selected root counts as a background even when its bounds match nothing.
+function pdfCollectZTailBackgrounds(root, candidates) {
+  var children = pdfChildrenArray(root);
+  var first =
+    children.length > PDF_BACKGROUND_Z_TAIL
+      ? children.length - PDF_BACKGROUND_Z_TAIL
+      : 0;
+  for (var i = children.length - 1; i >= first; i--) {
+    var item = children[i];
+    if (pdfIsProtected(item)) continue;
+    var solid = false;
+    try {
+      if (item.stroked) continue;
+      if (item.typename === 'PathItem') solid = pdfIsSolidFilled(item);
+      else if (item.typename === 'CompoundPathItem')
+        solid = pdfCompoundIsBackground(item);
+    } catch (tailError) {
+      continue;
+    }
+    if (!solid) continue;
+    var duplicate = false;
+    for (var c = 0; c < candidates.length; c++) {
+      if (candidates[c].item === item) {
+        duplicate = true;
+        break;
+      }
+    }
+    if (!duplicate)
+      candidates.push({ item: item, kind: 'background', depth: 1 });
+  }
+}
+
 function pdfPathIsEmpty(item) {
   if (pdfIsProtected(item)) return false;
   try {
@@ -388,18 +454,9 @@ function pdfPathIsEmpty(item) {
 
 function pdfVisitCleanup(item, rootBounds, isRoot, depth, candidates, groups) {
   if (!item || pdfHasSciTag(item)) return;
-  var children = pdfChildren(item);
-  if (children) {
-    for (var i = 0; i < children.length; i++)
-      pdfVisitCleanup(
-        children[i],
-        rootBounds,
-        false,
-        depth + 1,
-        candidates,
-        groups
-      );
-  }
+  var children = pdfChildrenArray(item);
+  for (var i = 0; i < children.length; i++)
+    pdfVisitCleanup(children[i], rootBounds, false, depth + 1, candidates, groups);
   if (isRoot || pdfIsProtected(item)) return;
   var type = '';
   try {
@@ -501,6 +558,7 @@ function cleanupPdfSelection() {
       var rootBounds = pdfBounds(saved[r]);
       if (!rootBounds) return sciError('errors.pdfCleanupSelection');
       pdfVisitCleanup(saved[r], rootBounds, true, 0, candidates, groups);
+      pdfCollectZTailBackgrounds(saved[r], candidates);
     }
   } catch (preflightError) {
     pdfRestoreSelection(doc, saved, allItems);
@@ -523,7 +581,14 @@ function cleanupPdfSelection() {
     for (var c = 0; c < candidates.length; c++) {
       var candidate = candidates[c];
       if (!pdfStillInDocument(candidate.item)) continue;
-      candidate.item.remove();
+      try {
+        candidate.item.remove();
+      } catch (candidateError) {
+        // A locked ancestor or a stale reference (ExtendScript error 1346
+        // "对象无效") only disqualifies this one object; the remaining
+        // candidates must still be cleaned up.
+        continue;
+      }
       if (candidate.kind === 'background') removedBackgrounds++;
       else removedPaths++;
     }
