@@ -988,22 +988,21 @@ test('zoom automatic update switch persists and gates background host polling', 
   const panel = await createPanel();
   try {
     const control = panel.element('default-zoom-auto-update') as unknown as HTMLInputElement;
-    assert.equal(control.checked, true);
-    await panel.click(control.id);
-    assert.equal(control.checked, false);
-    assert.equal(JSON.parse(panel.window.localStorage.getItem(storageKey)!).zoomAutoUpdate, false);
+    assert.equal(control.checked, false, 'automatic updates start opt-in');
     const pause = () => new Promise((resolve) => setTimeout(resolve, 450));
     await pause();
     assert.equal(panel.requests.filter((request) => request.operation === 'syncZoomTracker').length, 0);
     await panel.click(control.id);
+    assert.equal(control.checked, true);
+    assert.equal(JSON.parse(panel.window.localStorage.getItem(storageKey)!).zoomAutoUpdate, true);
     await pause();
     assert.ok(panel.requests.some((request) => request.operation === 'syncZoomTracker'));
     await panel.click(control.id);
-    const count = panel.requests.length;
+    const count = panel.requests.filter((request) => request.operation === 'syncZoomTracker').length;
     await pause();
-    assert.equal(panel.requests.length, count);
+    assert.equal(panel.requests.filter((request) => request.operation === 'syncZoomTracker').length, count);
     await panel.input('language', 'zh_CN');
-    assert.equal(panel.window.document.querySelector(`label[for="${control.id}"]`)?.textContent, '放大图自动更新');
+    assert.equal(panel.window.document.querySelector(`label[for="${control.id}"]`)?.textContent, '放大图自动更新（大文档建议关闭）');
   } finally {
     await panel.window.happyDOM.close();
   }
@@ -1771,7 +1770,8 @@ test('standalone zoom window restores source units and edits represented length 
       manualRect: null
     },
     settings: {
-      language: 'zh_CN'
+      language: 'zh_CN',
+      zoomAutoUpdate: true
     },
     timestamp: Date.now()
   };

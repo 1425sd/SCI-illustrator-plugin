@@ -58,7 +58,9 @@ export const defaults: Settings = {
   zoomPlacement: 'right',
   zoomGuideLineExtent: 'acrossImages',
   zoomKeepSquare: true,
-  zoomAutoUpdate: true,
+  // Opt-in: background polling scans the document every second and freezes
+  // large scientific figures. Users enable it on the zoom tab when needed.
+  zoomAutoUpdate: false,
   pseudocolorLut: 'red',
   pseudocolorKeepOriginal: false,
   pseudocolorDefaultsVersion: 1,

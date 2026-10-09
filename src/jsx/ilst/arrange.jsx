@@ -2251,6 +2251,7 @@ function clearZoomSessionTags(doc) {
         deleteTag(doc.pageItems[i], "ILST_ZOOM_ACTIVE_TARGET");
         deleteTag(doc.pageItems[i], "ILST_ZOOM_ACTIVE_MANUAL");
     }
+    _zoomEditorActive = false;
 }
 
 function getZoomSelection(selection) {
@@ -2443,7 +2444,7 @@ function tryClipLine(start, end, bounds) {
 
 // Always derive guide endpoints from the live clipping bounds, including when
 // an editor/tracker reload has lost the previous position of a moved zoom.
-function refreshZoomGuideLines(doc, key, source, marker, zoom, options, createMissing) {
+function refreshZoomGuideLines(doc, key, source, marker, zoom, options, createMissing, index) {
     if (!options.addGuideLines) return;
     var s = getVisibleBounds(source) || source.geometricBounds;
     var m = getVisibleBounds(marker) || marker.geometricBounds;
@@ -2460,7 +2461,10 @@ function refreshZoomGuideLines(doc, key, source, marker, zoom, options, createMi
             if (clipped) points = [clipped.start, clipped.end];
         }
         var tagName = "ILST_ZOOM_GUIDE" + (g + 1) + "_" + key;
-        var line = findItemByTag(doc, tagName);
+        // A poll already indexes every guide by key; findItemByTag would scan
+        // the whole document for each line on every poll.
+        var line = index ? (g === 0 ? index.guides1[key] : index.guides2[key]) : null;
+        if (!line) line = findItemByTag(doc, tagName);
         if (!line) {
             if (!createMissing) continue;
             var layer = source.layer || doc.activeLayer;
@@ -2581,6 +2585,7 @@ function inspectZoomTarget() {
     if (manualRect) {
         addTag(manualRect, "ILST_ZOOM_ACTIVE_MANUAL", "1");
     }
+    _zoomEditorActive = true;
 
     var sBounds = getVisibleBounds(sourceItem) || sourceItem.geometricBounds;
     var sLeft = sBounds[0];
@@ -2935,8 +2940,14 @@ var _zoomTrackedDocName = null;
 var _zoomTrackedDocument = null;
 // Once a poll confirms that the active document contains no zoom records,
 // avoid rescanning every page item until a zoom is created. applyZoomImages
-// clears this flag when it creates or replaces zoom artwork.
+// clears this flag when it creates or replaces zoom artwork. The page-item
+// count baseline invalidates the empty state when artwork is pasted, deleted
+// or undone: full scans freeze large documents, so polls must skip them.
 var _zoomTrackingKnownEmpty = false;
+var _zoomKnownEmptyCount = -1;
+// Mirrors the persisted ILST_ZOOM_ACTIVE_TARGET tags without the per-poll
+// full-document scan. A scan resynchronizes it after a host script reload.
+var _zoomEditorActive = false;
 var _zoomUndoHistory = [];
 var _zoomRedoHistory = [];
 var _zoomLastTrackingState = null;
@@ -3214,7 +3225,7 @@ function readZoomTrackingRecord(key, picture, marker, zoom, recordValue) {
 }
 
 function readCurrentZoomRecords(doc) {
-    var index = { records: {}, pictures: {}, markers: {}, guides1: {}, guides2: {}, keys: {}, items: [] };
+    var index = { records: {}, pictures: {}, markers: {}, guides1: {}, guides2: {}, keys: {}, items: [], activeTarget: false };
     // Build one index per poll instead of looking up each cached zoom through
     // its old native reference. Some host references remain readable after a
     // replacement even though they no longer belong to the document.
@@ -3223,6 +3234,7 @@ function readCurrentZoomRecords(doc) {
         index.items.push(item);
         for (var t = 0; t < item.tags.length; t++) {
             var tag = item.tags[t];
+            if (tag.name === "ILST_ZOOM_ACTIVE_TARGET") index.activeTarget = true;
             if (tag.name.indexOf("ILST_ZOOM_ITEM_") === 0) {
                 index.records[tag.name.substring(15)] = { zoom: item, value: tag.value };
             } else if (tag.name.indexOf("ILST_ZOOM_SRC_") === 0) {
@@ -3243,13 +3255,36 @@ function readCurrentZoomRecords(doc) {
     return index;
 }
 
+function removeIndexItem(index, item) {
+    for (var i = index.items.length - 1; i >= 0; i--) {
+        if (index.items[i] === item) {
+            index.items.splice(i, 1);
+            break;
+        }
+    }
+}
+
 function removeDeletedZoomAssociations(index) {
     // Document tags also allow cleanup after a panel/script restart, when no
-    // cached native reference to the deleted zoom remains.
+    // cached native reference to the deleted zoom remains. Every removal also
+    // prunes the index so the same poll can reuse it as its after-state
+    // without a second full document scan.
     for (var key in index.keys) {
         if (index.records[key]) continue;
-        try { if (index.guides1[key]) index.guides1[key].remove(); } catch (e) {}
-        try { if (index.guides2[key]) index.guides2[key].remove(); } catch (e) {}
+        try {
+            if (index.guides1[key]) {
+                index.guides1[key].remove();
+                removeIndexItem(index, index.guides1[key]);
+            }
+            delete index.guides1[key];
+        } catch (e) {}
+        try {
+            if (index.guides2[key]) {
+                index.guides2[key].remove();
+                removeIndexItem(index, index.guides2[key]);
+            }
+            delete index.guides2[key];
+        } catch (e) {}
         var marker = index.markers[key];
         if (marker) {
             var shared = false;
@@ -3262,29 +3297,47 @@ function removeDeletedZoomAssociations(index) {
             }
             try {
                 if (shared) deleteTag(marker, "ILST_ZOOM_MARKER_" + key);
-                else marker.remove();
+                else { marker.remove(); removeIndexItem(index, marker); }
+                delete index.markers[key];
             } catch (e) {}
         }
-        try { if (index.pictures[key]) deleteTag(index.pictures[key], "ILST_ZOOM_SRC_" + key); } catch (e) {}
+        try {
+            if (index.pictures[key]) deleteTag(index.pictures[key], "ILST_ZOOM_SRC_" + key);
+            delete index.pictures[key];
+            delete index.keys[key];
+        } catch (e) {}
     }
 }
 
 function syncZoomTracker() {
     if (app.documents.length === 0) return sciError("errors.noDocument");
     var doc = app.activeDocument;
-    if (_zoomTrackingKnownEmpty && _zoomTrackedDocument === doc) return "OK";
     // The modeless editor owns updates until confirm/cancel clears its tags.
     // Background polling must not rewrite the artwork behind its preview.
-    if (findItemByTag(doc, "ILST_ZOOM_ACTIVE_TARGET")) return "OK";
+    if (_zoomEditorActive) return "OK";
     var docName = "";
     try { docName = doc.name; } catch (e) { return "OK"; }
+    // Full page-item scans run on Illustrator's main thread and freeze large
+    // documents. Once a poll proves this document has no zoom records, later
+    // polls only re-scan when the page-item count changes: zoom artwork can
+    // only appear through plugin edits (which clear the flag themselves),
+    // pasted artwork or undo, and all of those change the count.
+    if (_zoomTrackingKnownEmpty &&
+        (_zoomTrackedDocument === doc || _zoomTrackedDocName === docName) &&
+        doc.pageItems.length === _zoomKnownEmptyCount) return "OK";
     var index = readCurrentZoomRecords(doc);
+    if (index.activeTarget) {
+        // Session tags survived a host script reload; resynchronize the flag.
+        _zoomEditorActive = true;
+        return "OK";
+    }
     var hasZoomRecords = false;
     var hasZoomKeys = false;
     for (var recordKey in index.records) { hasZoomRecords = true; break; }
     for (var keyName in index.keys) { hasZoomKeys = true; break; }
     if (!hasZoomRecords && !hasZoomKeys) {
         _zoomTrackingKnownEmpty = true;
+        _zoomKnownEmptyCount = doc.pageItems.length;
         _zoomTrackedGroups = [];
         _zoomTrackedDocName = docName;
         _zoomTrackedDocument = doc;
@@ -3321,7 +3374,7 @@ function syncZoomTracker() {
             // Check the document before treating an old reference as deletion.
             group = readZoomTrackingRecord(key, picture, marker, currentRecord.zoom, currentRecord.value);
             remaining.push(group);
-            try { refreshZoomGuideLines(doc, group.key, group.picture, group.marker, group.zoom, group, false); } catch (e) {}
+            try { refreshZoomGuideLines(doc, group.key, group.picture, group.marker, group.zoom, group, false, index); } catch (e) {}
             continue;
         }
         // Keep cached positions for movement detection, but use the live object.
@@ -3378,9 +3431,11 @@ function syncZoomTracker() {
         group.lastPBounds = [pBounds[0], pBounds[1], pBounds[2], pBounds[3]];
         group.lastMBounds = [mBounds[0], mBounds[1], mBounds[2], mBounds[3]];
         group.lastZBounds = [zBounds[0], zBounds[1], zBounds[2], zBounds[3]];
-        refreshZoomGuideLines(doc, group.key, group.picture, group.marker, group.zoom, group, false);
+        refreshZoomGuideLines(doc, group.key, group.picture, group.marker, group.zoom, group, false, index);
     }
     _zoomTrackedGroups = remaining;
-    recordZoomTrackingHistory(doc, beforeAuto, beforeUser, readCurrentZoomRecords(doc));
+    // The index was pruned alongside its removals, so it already reflects the
+    // post-poll state; a second full scan would freeze the document again.
+    recordZoomTrackingHistory(doc, beforeAuto, beforeUser, index);
     return "OK";
 }

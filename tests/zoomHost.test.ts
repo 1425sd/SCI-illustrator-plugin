@@ -1177,3 +1177,57 @@ test('a manual rectangle remains supported and cancelling a multi-image editor c
     );
   }
 });
+
+function countPageItemIndexReads(host: any): () => number {
+  const original = host.document.pageItems;
+  let indexReads = 0;
+  host.document.pageItems = new Proxy(original, {
+    get(target, property, receiver) {
+      if (typeof property === 'string' && /^\d+$/.test(property)) indexReads++;
+      return Reflect.get(target, property, receiver);
+    }
+  });
+  return () => indexReads;
+}
+
+test('background polls skip page-item scans on a known-empty document', () => {
+  const host = fixture();
+  for (let i = 0; i < 40; i++) host.item('PathItem', 0, 100, 5, 5);
+  assert.equal(host.call('syncZoomTracker').data, 'OK');
+  const reads = countPageItemIndexReads(host);
+  for (let i = 0; i < 3; i++) assert.equal(host.call('syncZoomTracker').data, 'OK');
+  assert.equal(reads(), 0, 'empty documents must not be rescanned every second');
+});
+
+test('page-item count changes re-arm the known-empty fast path', () => {
+  const host = fixture();
+  assert.equal(host.call('syncZoomTracker').data, 'OK');
+  host.item('PathItem', 0, 100, 5, 5);
+  const reads = countPageItemIndexReads(host);
+  assert.equal(host.call('syncZoomTracker').data, 'OK');
+  assert.ok(reads() > 0, 'pasted artwork must trigger a rescan');
+  const afterRescan = reads();
+  assert.equal(host.call('syncZoomTracker').data, 'OK');
+  assert.equal(reads(), afterRescan, 'the settled document must not rescan again');
+});
+
+test('an open zoom editor session and its cancellation steer background scans', () => {
+  const host = fixture();
+  for (let i = 0; i < 20; i++) host.item('PathItem', 0, 100, 5, 5);
+  host.inspect(host.source);
+  const reads = countPageItemIndexReads(host);
+  for (let i = 0; i < 3; i++) assert.equal(host.call('syncZoomTracker').data, 'OK');
+  assert.equal(reads(), 0, 'the editor session owns updates without any scan');
+  host.call('cancelZoomTarget');
+  assert.equal(host.call('syncZoomTracker').data, 'OK');
+  assert.ok(reads() > 0, 'cancelling the editor must resume scanning');
+});
+
+test('steady-state tracking performs a single page-item pass per poll', () => {
+  const { host } = trackedFixture(2);
+  const reads = countPageItemIndexReads(host);
+  assert.equal(host.call('syncZoomTracker').data, 'OK');
+  // Exactly one index pass: guides resolve through the index and the history
+  // reuses it, so no second scan or per-guide document search may remain.
+  assert.equal(reads(), host.items.length);
+});
