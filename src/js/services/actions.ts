@@ -394,7 +394,7 @@ export const actions = {
   updateLabels: () => run(updateLabels),
   undoLabelIndex,
   filterText: () => run(filterText),
-  filterSelection: (mode: 'textOnly' | 'excludeText') =>
+  filterSelection: (mode: 'textOnly' | 'pathsOnly' | 'shapesOnly') =>
     run(async () => {
       await bridge.call('filterSelection', mode);
     }),

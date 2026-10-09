@@ -17,10 +17,18 @@
 
     <button
       class="btn"
-      id="exclude-text-button"
-      use:tooltip={$t('selection.excludeTextHint')}
-      onclick={() => actions.filterSelection('excludeText')}
-      >{$t('selection.excludeText')}</button
+      id="select-paths-only-button"
+      use:tooltip={$t('selection.pathsOnlyHint')}
+      onclick={() => actions.filterSelection('pathsOnly')}
+      >{$t('selection.pathsOnly')}</button
+    >
+
+    <button
+      class="btn"
+      id="select-shapes-only-button"
+      use:tooltip={$t('selection.shapesOnlyHint')}
+      onclick={() => actions.filterSelection('shapesOnly')}
+      >{$t('selection.shapesOnly')}</button
     >
   </div>
 </div>

@@ -1097,6 +1097,39 @@ function filterTextFrames() {
     return "Success|" + textFrames.length;
 }
 
+// 选区类型筛选的判定：文本框 / 开放路径 / 封闭形状。复合路径只要含
+// 封闭子路径就算形状，全部开放才算路径。
+function filterItemIsText(item) {
+    try {
+        return item.typename === "TextFrame";
+    } catch (e) {
+        return false;
+    }
+}
+
+function filterItemIsClosedShape(item) {
+    try {
+        if (item.typename === "PathItem") return item.closed === true;
+        if (item.typename === "CompoundPathItem") {
+            if (!item.pathItems || item.pathItems.length === 0) return false;
+            for (var i = 0; i < item.pathItems.length; i++) {
+                if (item.pathItems[i].closed) return true;
+            }
+        }
+    } catch (e) {}
+    return false;
+}
+
+function filterItemIsOpenPath(item) {
+    try {
+        var isPath =
+            item.typename === "PathItem" || item.typename === "CompoundPathItem";
+        return isPath && !filterItemIsClosedShape(item);
+    } catch (e) {
+        return false;
+    }
+}
+
 function filterSelection(type) {
     if (app.documents.length === 0) return sciError("errors.noDocument");
 
@@ -1107,58 +1140,44 @@ function filterSelection(type) {
         return sciError("errors.selectObjects");
     }
 
-    var textItems = [];
-    var nonTextItems = [];
-
+    // 参与筛选的是选区直接子对象；组再展开一层，与旧版行为一致，不递归更深。
+    var items = [];
     for (var i = 0; i < selection.length; i++) {
         var item = selection[i];
-        if (item.typename === "TextFrame") {
-            textItems.push(item);
-        } else if (item.typename === "GroupItem") {
-            var subTexts = [];
-            var subNonTexts = [];
-            for (var g = 0; g < item.pageItems.length; g++) {
-                var sub = item.pageItems[g];
-                if (sub.typename === "TextFrame") {
-                    subTexts.push(sub);
-                } else {
-                    subNonTexts.push(sub);
+        var expanded = false;
+        try {
+            if (item.typename === "GroupItem" && item.pageItems.length > 0) {
+                for (var g = 0; g < item.pageItems.length; g++) {
+                    items.push(item.pageItems[g]);
                 }
+                expanded = true;
             }
-            if (subTexts.length > 0) {
-                for (var st = 0; st < subTexts.length; st++) {
-                    textItems.push(subTexts[st]);
-                }
-            }
-            if (subNonTexts.length > 0 || subTexts.length === 0) {
-                nonTextItems.push(item);
-            }
-        } else {
-            nonTextItems.push(item);
-        }
+        } catch (expandError) {}
+        if (!expanded) items.push(item);
     }
 
-    if (type === "textOnly") {
-        if (textItems.length === 0) {
-            return sciError("errors.noTextFrames");
-        }
-        doc.selection = null;
-        for (var t = 0; t < textItems.length; t++) {
-            textItems[t].selected = true;
-        }
-        return "Success|" + textItems.length;
-    } else if (type === "excludeText") {
-        if (nonTextItems.length === 0) {
-            return sciError("errors.noNonTextObjects");
-        }
-        doc.selection = null;
-        for (var n = 0; n < nonTextItems.length; n++) {
-            nonTextItems[n].selected = true;
-        }
-        return "Success|" + nonTextItems.length;
+    var matcher;
+    if (type === "textOnly") matcher = filterItemIsText;
+    else if (type === "pathsOnly") matcher = filterItemIsOpenPath;
+    else if (type === "shapesOnly") matcher = filterItemIsClosedShape;
+    else return sciError("errors.unknownFilter");
+
+    var matched = [];
+    for (var j = 0; j < items.length; j++) {
+        if (matcher(items[j])) matched.push(items[j]);
     }
 
-    return sciError("errors.unknownFilter");
+    if (matched.length === 0) {
+        if (type === "textOnly") return sciError("errors.noTextFrames");
+        if (type === "pathsOnly") return sciError("errors.noPaths");
+        return sciError("errors.noShapes");
+    }
+
+    doc.selection = null;
+    for (var m = 0; m < matched.length; m++) {
+        matched[m].selected = true;
+    }
+    return "Success|" + matched.length;
 }
 
 function copyRelativePosition(corner, order, reverseOrder, useArtboardRef) {

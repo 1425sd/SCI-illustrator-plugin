@@ -31,7 +31,6 @@
   import ZoomModal from '../components/ZoomModal.svelte';
   import SelectionPanel from '../components/SelectionPanel.svelte';
   import SettingsPanel from '../components/SettingsPanel.svelte';
-  import AboutPanel from '../components/AboutPanel.svelte';
   import PdfToolsPanel from '../components/PdfToolsPanel.svelte';
   import { actions } from '../services/actions';
 
@@ -51,8 +50,7 @@
     { id: 'palettes', component: PalettePanel },
     { id: 'pdf', component: PdfToolsPanel },
     { id: 'selection', component: SelectionPanel },
-    { id: 'settings', component: SettingsPanel },
-    { id: 'about', component: AboutPanel }
+    { id: 'settings', component: SettingsPanel }
   ];
   let active = $state('relative');
   let scaleRevision = $state(0);

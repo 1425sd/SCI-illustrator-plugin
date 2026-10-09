@@ -2,6 +2,7 @@
   import { settings } from '../stores/settings';
   import { t } from '../i18n';
   import { tooltip } from '../services/tooltip';
+  import { version } from '../../../package.json';
 </script>
 
 <div class="panel active" id="panel-settings">
@@ -18,4 +19,13 @@
       </select>
     </div>
   </div>
+  <p class="plugin-version">{$t('settings.version', ['v' + version])}</p>
 </div>
+
+<style>
+  .plugin-version {
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+</style>
