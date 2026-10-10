@@ -5,6 +5,9 @@
 // bottommost siblings of a selected root are searched for them.
 var PDF_BACKGROUND_Z_TAIL = 10;
 
+// The report lists at most this many removed background sizes.
+var PDF_BACKGROUND_SIZE_LIMIT = 10;
+
 function pdfHasSciTag(item) {
   try {
     if (!item.tags) return false;
@@ -133,6 +136,11 @@ function pdfRunMenuOnItem(doc, item, command) {
   try {
     if (!app.executeMenuCommand || !pdfStillInDocument(item)) return false;
     doc.selection = [item];
+    // 读回确认：隐藏/锁定父级会让赋值静默失败，菜单命令会作用到
+    // 上一次的选区上，可能波及选区之外的对象。
+    var current = doc.selection;
+    if (!current || current.length !== 1 || current[0] !== item)
+      return false;
     app.executeMenuCommand(command);
     return true;
   } catch (e) {
@@ -294,14 +302,14 @@ function pdfIsWhiteColor(color) {
   if (!color) return false;
   try {
     if (color.typename === 'RGBColor')
-      return color.red >= 254 && color.green >= 254 && color.blue >= 254;
-    if (color.typename === 'GrayColor') return color.gray <= 1;
+      return color.red >= 250 && color.green >= 250 && color.blue >= 250;
+    if (color.typename === 'GrayColor') return color.gray <= 2;
     if (color.typename === 'CMYKColor')
       return (
-        color.cyan <= 1 &&
-        color.magenta <= 1 &&
-        color.yellow <= 1 &&
-        color.black <= 1
+        color.cyan <= 3 &&
+        color.magenta <= 3 &&
+        color.yellow <= 3 &&
+        color.black <= 3
       );
     if (color.typename === 'SpotColor' && color.spot)
       return pdfIsWhiteColor(color.spot.color);
@@ -430,6 +438,101 @@ function pdfCollectZTailBackgrounds(root, candidates) {
   }
 }
 
+// Removed backgrounds are summarised by size (mm) so the report says what
+// was actually deleted.
+function pdfDescribeBackground(item) {
+  var size = pdfBoundsSize(pdfBounds(item));
+  if (!size) return '';
+  var width = Math.round(pointsToMm(size.width) * 10) / 10;
+  var height = Math.round(pointsToMm(size.height) * 10) / 10;
+  return width + ' \u00d7 ' + height + ' mm';
+}
+
+// 删除候选必须是所选根组的后代：取消编组会改变对象的父级，
+// 这里沿 parent 链向上找所选根组，越界对象一律不碰。
+function pdfIsInsideRoots(item, roots) {
+  try {
+    var node = item;
+    while (node) {
+      for (var r = 0; r < roots.length; r++)
+        if (roots[r] === node) return true;
+      var type = '';
+      try {
+        type = node.typename;
+      } catch (typeError) {
+        return false;
+      }
+      if (!type || type === 'Document' || type === 'Layer') return false;
+      node = node.parent;
+    }
+  } catch (e) {}
+  return false;
+}
+
+// Removing candidates is one shared routine: skip stale references and
+// anything outside the selected roots, record background sizes before the
+// object disappears, and let a failed remove() (locked ancestor, ExtendScript
+// error 1346) only disqualify that one item.
+function pdfRemoveCandidates(candidates, outcome, roots) {
+  for (var c = 0; c < candidates.length; c++) {
+    var candidate = candidates[c];
+    if (!pdfStillInDocument(candidate.item)) continue;
+    if (roots && !pdfIsInsideRoots(candidate.item, roots)) continue;
+    var size =
+      candidate.kind === 'background'
+        ? pdfDescribeBackground(candidate.item)
+        : '';
+    try {
+      candidate.item.remove();
+    } catch (candidateError) {
+      continue;
+    }
+    if (candidate.kind === 'background') {
+      outcome.removedBackgrounds++;
+      if (size && outcome.sizes.length < PDF_BACKGROUND_SIZE_LIMIT)
+        outcome.sizes.push(size);
+    } else {
+      outcome.removedPaths++;
+    }
+  }
+}
+
+// Releasing masks and ungrouping exposes paths the first pass never judged,
+// a released white clipping rectangle first and foremost.  Re-run the same
+// conservative background rules over the surviving roots and drop what they
+// now flag, so the cleanup leaves no newly exposed white rectangles behind.
+function pdfSecondPassBackgrounds(roots, outcome) {
+  var candidates = [],
+    groups = [];
+  for (var r = 0; r < roots.length; r++) {
+    var root = roots[r];
+    if (!pdfStillInDocument(root)) continue;
+    try {
+      pdfVisitCleanup(root, pdfBounds(root), true, 0, candidates, groups);
+      pdfCollectZTailBackgrounds(root, candidates);
+    } catch (visitError) {
+      continue;
+    }
+  }
+  candidates.sort(function (a, b) {
+    return b.depth - a.depth;
+  });
+  pdfRemoveCandidates(candidates, outcome, roots);
+}
+
+// An unstroked solid-white path is background junk wherever it sits in the
+// tree.  Deliberately unpainted whites that matter (box-plot boxes and the
+// like) always carry an outline, so requiring "no stroke" keeps them safe.
+function pdfIsWhiteFillPath(item) {
+  try {
+    if (item.stroked) return false;
+    if (item.typename === 'PathItem') return pdfIsSolidFilled(item);
+    if (item.typename === 'CompoundPathItem')
+      return pdfCompoundIsBackground(item);
+  } catch (e) {}
+  return false;
+}
+
 function pdfPathIsEmpty(item) {
   if (pdfIsProtected(item)) return false;
   try {
@@ -465,10 +568,12 @@ function pdfVisitCleanup(item, rootBounds, isRoot, depth, candidates, groups) {
     return;
   }
   if (type === 'PathItem' || type === 'CompoundPathItem') {
-    if (pdfIsBackground(item, rootBounds))
-      candidates.push({ item: item, kind: 'background', depth: depth });
-    else if (pdfPathIsEmpty(item))
-      candidates.push({ item: item, kind: 'path', depth: depth });
+    var kind = '';
+    if (pdfIsBackground(item, rootBounds) || pdfIsWhiteFillPath(item))
+      kind = 'background';
+    else if (pdfPathIsEmpty(item)) kind = 'path';
+    if (kind)
+      candidates.push({ item: item, kind: kind, depth: depth });
   } else if (type === 'GroupItem') {
     groups.push({ item: item, depth: depth });
   }
@@ -568,58 +673,67 @@ function cleanupPdfSelection() {
   candidates.sort(function (a, b) {
     return b.depth - a.depth;
   });
-  var removedBackgrounds = 0,
-    removedPaths = 0,
-    removedGroups = 0,
+  var outcome = {
+      removedBackgrounds: 0,
+      removedPaths: 0,
+      removedGroups: 0,
+      sizes: []
+    },
     stats = {
       changedFonts: 0,
       releasedMasks: 0,
       ungroupedGroups: 0,
       embeddedImages: 0
-    };
+    },
+    warnings = [];
+  // Every phase is best effort: an unexpected error is reported as a warning
+  // on the success summary instead of failing the whole cleanup, because the
+  // steps before it have already changed the document.
   try {
-    for (var c = 0; c < candidates.length; c++) {
-      var candidate = candidates[c];
-      if (!pdfStillInDocument(candidate.item)) continue;
-      try {
-        candidate.item.remove();
-      } catch (candidateError) {
-        // A locked ancestor or a stale reference (ExtendScript error 1346
-        // "对象无效") only disqualifies this one object; the remaining
-        // candidates must still be cleaned up.
-        continue;
-      }
-      if (candidate.kind === 'background') removedBackgrounds++;
-      else removedPaths++;
-    }
+    pdfRemoveCandidates(candidates, outcome, saved);
+  } catch (removeError) {
+    warnings.push(String((removeError && removeError.message) || removeError));
+  }
+  try {
     for (var a = 0; a < saved.length; a++) pdfApplyArial(saved[a], stats);
     pdfReleaseMasks(doc, saved, stats, operationGroups);
     var releasedPathStats = { removedPaths: 0 };
     pdfRemoveReleasedEmptyPaths(allItems, releasedPathStats);
-    removedPaths += releasedPathStats.removedPaths;
+    outcome.removedPaths += releasedPathStats.removedPaths;
     pdfUngroup(doc, saved, stats, operationGroups);
     pdfEmbedItems(allItems, stats);
+  } catch (restructureError) {
+    warnings.push(
+      String((restructureError && restructureError.message) || restructureError)
+    );
+  }
+  try {
     groups.sort(function (a, b) {
       return b.depth - a.depth;
     });
     var postStats = { removedPaths: 0, removedGroups: 0 };
     pdfRemoveEmptyGroups(groups, postStats);
-    removedPaths += postStats.removedPaths;
-    removedGroups += postStats.removedGroups;
-  } catch (removeError) {
-    pdfRestoreSelection(doc, saved, allItems);
-    return sciError('errors.pdfCleanupFailed', [removeError.message]);
+    outcome.removedPaths += postStats.removedPaths;
+    outcome.removedGroups += postStats.removedGroups;
+    pdfSecondPassBackgrounds(saved, outcome);
+  } catch (finalError) {
+    warnings.push(String((finalError && finalError.message) || finalError));
   }
   pdfRestoreSelection(doc, saved, allItems);
   var result = {
-    removedBackgrounds: removedBackgrounds,
-    removedPaths: removedPaths,
-    removedGroups: removedGroups
+    removedBackgrounds: outcome.removedBackgrounds,
+    removedPaths: outcome.removedPaths,
+    removedGroups: outcome.removedGroups
   };
+  if (outcome.sizes.length) result.backgroundSizes = outcome.sizes;
   if (stats.changedFonts) result.changedFonts = stats.changedFonts;
   if (stats.releasedMasks) result.releasedMasks = stats.releasedMasks;
   if (stats.ungroupedGroups) result.ungroupedGroups = stats.ungroupedGroups;
   if (stats.embeddedImages) result.embeddedImages = stats.embeddedImages;
+  if (warnings.length) result.warning = warnings.join('; ');
+  // 处理范围：选区比预期大时（整页 PDF 是一个编组），这里一眼可见
+  result.selectionRoots = saved.length;
+  result.scopeItems = allItems.length;
   return JSON.stringify(result);
 }
 

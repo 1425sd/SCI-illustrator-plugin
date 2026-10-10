@@ -244,6 +244,10 @@ async function splitText(): Promise<void> {
   await bridge.call('splitTextFrames');
 }
 
+async function mergeText(): Promise<void> {
+  await bridge.call('mergeTextFrames');
+}
+
 async function copySpacing(direction: Direction): Promise<void> {
   const result = await bridge.call('copySpacing', direction);
   const spacing = Number(Number(result).toFixed(3));
@@ -282,10 +286,14 @@ export interface PdfCleanupResult {
   removedBackgrounds: number;
   removedPaths: number;
   removedGroups: number;
+  backgroundSizes?: string[];
   changedFonts?: number;
   releasedMasks?: number;
   ungroupedGroups?: number;
   embeddedImages?: number;
+  warning?: string;
+  selectionRoots: number;
+  scopeItems: number;
 }
 
 export interface TextSizeResult {
@@ -399,6 +407,7 @@ export const actions = {
   undoLabelIndex,
   filterText: () => run(filterText),
   splitText: () => run(splitText),
+  mergeText: () => run(mergeText),
   filterSelection: (mode: 'textOnly' | 'pathsOnly' | 'shapesOnly') =>
     run(async () => {
       await bridge.call('filterSelection', mode);

@@ -32,6 +32,16 @@
       if (result) textSizeResult = result;
     });
   }
+
+  const backgroundSizeSummary = $derived(
+    cleanupResult?.backgroundSizes?.length
+      ? cleanupResult.backgroundSizes.join('、') +
+          (cleanupResult.removedBackgrounds >
+          cleanupResult.backgroundSizes.length
+            ? ' …'
+            : '')
+      : ''
+  );
 </script>
 
 <div class="panel active" id="panel-pdf">
@@ -71,6 +81,22 @@
           String(cleanupResult.releasedMasks || 0),
           String(cleanupResult.ungroupedGroups || 0),
           String(cleanupResult.embeddedImages || 0)
+        ])}
+      </div>
+      {#if backgroundSizeSummary}
+        <div class="status status-details" role="status">
+          {$t('pdf.cleanupBackgroundSizes', [backgroundSizeSummary])}
+        </div>
+      {/if}
+      {#if cleanupResult.warning}
+        <div class="status status-warning" role="status">
+          {$t('pdf.cleanupWarning', [cleanupResult.warning])}
+        </div>
+      {/if}
+      <div class="status status-details" role="status">
+        {$t('pdf.cleanupScope', [
+          String(cleanupResult.selectionRoots),
+          String(cleanupResult.scopeItems)
         ])}
       </div>
     {/if}
@@ -152,6 +178,11 @@
 
   .status-details {
     margin-top: 4px;
+  }
+
+  .status-warning {
+    margin-top: 4px;
+    color: var(--warning, #d97706);
   }
 
   .text-tools {

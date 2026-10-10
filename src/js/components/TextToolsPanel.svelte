@@ -14,4 +14,13 @@
       onclick={actions.splitText}>{$t('texttools.split')}</button
     >
   </div>
+  <h3>{$t('texttools.merge')}</h3>
+  <div class="toolbar">
+    <button
+      class="btn btn-primary"
+      id="merge-text-button"
+      use:tooltip={$t('texttools.mergeHint')}
+      onclick={actions.mergeText}>{$t('texttools.merge')}</button
+    >
+  </div>
 </div>

@@ -93,6 +93,7 @@ export interface HostArguments {
   changeSelectedTextSize: [number];
   changeImageRatio: [number, RatioAnchor];
   splitTextFrames: [];
+  mergeTextFrames: [];
 }
 
 export type HostOperation = keyof HostArguments;

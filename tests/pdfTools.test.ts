@@ -69,7 +69,11 @@ function resizeable(
   return value;
 }
 
-function fixture(selection: any[], documents: any[] = [{}]) {
+function fixture(
+  selection: any[],
+  documents: any[] = [{}],
+  appOverrides: Record<string, unknown> = {}
+) {
   const document: any = { selection, pageItems: [] };
   for (const item of selection) {
     if (!item.parent) item.parent = document;
@@ -77,7 +81,7 @@ function fixture(selection: any[], documents: any[] = [{}]) {
   }
   const context = vm.createContext({
     $: {},
-    app: { documents, activeDocument: document },
+    app: { documents, activeDocument: document, ...appOverrides },
     Transformation: { CENTER: 'center' }
   });
   vm.runInContext(source, context);
@@ -121,7 +125,10 @@ test('PDF cleanup removes empty and full-page white paths but preserves clipping
     data: JSON.stringify({
       removedBackgrounds: 1,
       removedPaths: 1,
-      removedGroups: 0
+      removedGroups: 0,
+      backgroundSizes: ['35.3 × 35.3 mm'],
+      selectionRoots: 1,
+      scopeItems: 7
     })
   });
   assert.equal(root.pageItems.includes(background), false);
@@ -157,7 +164,10 @@ test('PDF cleanup removes a white background matching a nested group bounds', ()
     data: JSON.stringify({
       removedBackgrounds: 1,
       removedPaths: 0,
-      removedGroups: 0
+      removedGroups: 0,
+      backgroundSizes: ['35.3 × 35.3 mm'],
+      selectionRoots: 1,
+      scopeItems: 5
     })
   });
   assert.equal(nested.pageItems.includes(nestedBackground), false);
@@ -165,7 +175,7 @@ test('PDF cleanup removes a white background matching a nested group bounds', ()
   assert.equal(root.pageItems.includes(outerArtwork), true);
 });
 
-test('PDF cleanup keeps a lone white shape inside a wrapper group', () => {
+test('PDF cleanup removes nested white shapes anywhere in the tree', () => {
   const whiteShape = path([0, 100, 100, 0], {
     filled: true,
     fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 }
@@ -182,12 +192,40 @@ test('PDF cleanup keeps a lone white shape inside a wrapper group', () => {
   assert.deepEqual(result, {
     ok: true,
     data: JSON.stringify({
-      removedBackgrounds: 0,
+      removedBackgrounds: 1,
       removedPaths: 0,
-      removedGroups: 0
+      removedGroups: 1,
+      backgroundSizes: ['35.3 × 35.3 mm'],
+      selectionRoots: 1,
+      scopeItems: 4
     })
   });
-  assert.equal(wrapper.pageItems.includes(whiteShape), true);
+  assert.equal(wrapper.pageItems.includes(whiteShape), false);
+  assert.equal(root.pageItems.includes(outerArtwork), true);
+});
+
+test('PDF cleanup keeps outlined white shapes such as box-plot boxes', () => {
+  const outlinedBox = path([0, 100, 100, 0], {
+    filled: true,
+    fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 },
+    stroked: true,
+    strokeWidth: 1
+  });
+  const root = group([outlinedBox]);
+  const { call } = fixture([root]);
+
+  const result = call('cleanupPdfSelection');
+  assert.deepEqual(result, {
+    ok: true,
+    data: JSON.stringify({
+      removedBackgrounds: 0,
+      removedPaths: 0,
+      removedGroups: 0,
+      selectionRoots: 1,
+      scopeItems: 2
+    })
+  });
+  assert.equal(root.pageItems.includes(outlinedBox), true);
 });
 
 test('PDF cleanup removes white fills at the bottom of the z-order without bounds matching', () => {
@@ -210,7 +248,7 @@ test('PDF cleanup removes white fills at the bottom of the z-order without bound
   assert.equal(root.pageItems.includes(artwork), true);
 });
 
-test('PDF cleanup leaves white fills outside the bottom ten stack positions', () => {
+test('PDF cleanup removes white fills at any stacking position', () => {
   const children: any[] = [
     path([30, 70, 70, 30], {
       filled: true,
@@ -227,15 +265,12 @@ test('PDF cleanup leaves white fills outside the bottom ten stack positions', ()
   const { call } = fixture([root]);
 
   const result = call('cleanupPdfSelection');
-  assert.deepEqual(result, {
-    ok: true,
-    data: JSON.stringify({
-      removedBackgrounds: 0,
-      removedPaths: 0,
-      removedGroups: 0
-    })
-  });
-  assert.equal(root.pageItems.includes(whiteTop), true);
+  assert.equal(result.ok, true);
+  const info = JSON.parse((result as { data: string }).data);
+  assert.equal(info.removedBackgrounds, 1);
+  assert.deepEqual(info.backgroundSizes, ['14.1 × 14.1 mm']);
+  assert.equal(root.pageItems.includes(whiteTop), false);
+  assert.equal(root.pageItems.length, 10);
 });
 
 test('PDF cleanup skips artwork under a locked ancestor instead of failing', () => {
@@ -261,7 +296,9 @@ test('PDF cleanup skips artwork under a locked ancestor instead of failing', () 
     data: JSON.stringify({
       removedBackgrounds: 0,
       removedPaths: 0,
-      removedGroups: 0
+      removedGroups: 0,
+      selectionRoots: 1,
+      scopeItems: 5
     })
   });
   assert.equal(locked.pageItems.includes(lockedWhite), true);
@@ -292,6 +329,69 @@ test('PDF cleanup continues remaining candidates after one removal fails', () =>
   assert.equal(info.removedBackgrounds, 1);
   assert.equal(root.pageItems.includes(stubborn), true);
   assert.equal(root.pageItems.includes(removable), false);
+});
+
+test('PDF cleanup removes a white rectangle exposed by a released mask', () => {
+  const artwork = path([0, 100, 100, 0], { stroked: true, strokeWidth: 1 });
+  const mask = path([0, 100, 100, 0], { clipping: true });
+  const clipped = group([artwork, mask], { clipped: true });
+  const root = group([clipped]);
+  const { call } = fixture([root], [{}], {
+    executeMenuCommand: (command: string) => {
+      if (command === 'releaseMask') {
+        clipped.clipped = false;
+        mask.clipping = false;
+        mask.filled = true;
+        mask.fillColor = {
+          typename: 'RGBColor',
+          red: 255,
+          green: 255,
+          blue: 255
+        };
+      }
+    }
+  });
+
+  const result = call('cleanupPdfSelection');
+  assert.equal(result.ok, true);
+  const info = JSON.parse((result as { data: string }).data);
+  assert.equal(info.releasedMasks, 1);
+  assert.equal(info.removedBackgrounds, 1);
+  assert.deepEqual(info.backgroundSizes, ['35.3 × 35.3 mm']);
+  assert.equal(clipped.pageItems.includes(mask), false);
+  assert.equal(clipped.pageItems.includes(artwork), true);
+});
+
+test('menu commands are skipped when the selection cannot be set', () => {
+  const artwork = path([0, 100, 100, 0], { stroked: true, strokeWidth: 1 });
+  const mask = path([0, 100, 100, 0], { clipping: true });
+  const clipped = group([artwork, mask], { clipped: true });
+  const root = group([clipped]);
+  let menuCalls = 0;
+  const { document, call } = fixture([root], [{}], {
+    executeMenuCommand: () => {
+      menuCalls++;
+    }
+  });
+  // 模拟隐藏/锁定父级下 doc.selection 赋值静默失败：
+  // 入口读到的仍是原选区，但后续对内部组的赋值不再生效，
+  // 菜单命令绝不能落到旧选区上
+  Object.defineProperty(document, 'selection', {
+    configurable: true,
+    get() {
+      return [root];
+    },
+    set() {}
+  });
+
+  const result = call('cleanupPdfSelection');
+  assert.equal(result.ok, true);
+  // 只有真实选中的根组允许执行菜单命令；内部组（如 clipped）一律跳过
+  assert.equal(menuCalls, 1);
+  const info = JSON.parse((result as { data: string }).data);
+  assert.equal(info.releasedMasks, undefined);
+  assert.equal(info.ungroupedGroups, 1);
+  assert.equal(clipped.clipped, true);
 });
 
 test('image ratio changes use the requested anchor and preserve object centers', () => {

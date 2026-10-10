@@ -34,6 +34,7 @@ declare function cleanupPdfSelection(...args: unknown[]): string;
 declare function changeSelectedTextSize(...args: unknown[]): string;
 declare function changeImageRatio(...args: unknown[]): string;
 declare function splitTextFrames(...args: unknown[]): string;
+declare function mergeTextFrames(...args: unknown[]): string;
 
 var methods: Record<string, (...args: unknown[]) => string> = {
   arrangeImages: arrangeImages,
@@ -67,7 +68,8 @@ var methods: Record<string, (...args: unknown[]) => string> = {
   cleanupPdfSelection: cleanupPdfSelection,
   changeSelectedTextSize: changeSelectedTextSize,
   changeImageRatio: changeImageRatio,
-  splitTextFrames: splitTextFrames
+  splitTextFrames: splitTextFrames,
+  mergeTextFrames: mergeTextFrames
 };
 
 $['com.achuan-2.illustrator_sci_toolbox'] = {
