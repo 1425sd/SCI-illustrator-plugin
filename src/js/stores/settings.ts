@@ -22,6 +22,7 @@ export interface Settings {
   autoUpdateIndex: boolean;
   textFont: string;
   textSize: number;
+  lineWidth: number;
   zoomLineWidth: number;
   zoomLineColor: string;
   zoomLineStyle: string;
@@ -55,6 +56,7 @@ export const defaults: Settings = {
   autoUpdateIndex: true,
   textFont: 'ArialMT',
   textSize: 6,
+  lineWidth: 0.5,
   zoomLineWidth: 1.5,
   zoomLineColor: '#ff0000',
   zoomLineStyle: 'dash',
@@ -132,6 +134,8 @@ export function normalizeSettings(value: unknown): Settings {
     result.textFont = defaults.textFont;
   if (![5, 6, 7, 8].includes(result.textSize))
     result.textSize = defaults.textSize;
+  if (![0.25, 0.5, 0.75, 1].includes(result.lineWidth))
+    result.lineWidth = defaults.lineWidth;
   if (result.zoomLineWidth <= 0) result.zoomLineWidth = defaults.zoomLineWidth;
   if (!isLayerColor(result.pseudocolorLut))
     result.pseudocolorLut = defaults.pseudocolorLut;

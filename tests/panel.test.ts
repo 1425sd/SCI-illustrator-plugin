@@ -674,6 +674,10 @@ async function createPanel(
                   size: 5,
                   font: 'ArialMT'
                 }),
+                changeSelectedLineWidth: JSON.stringify({
+                  changed: 2,
+                  width: 1
+                }),
                 splitTextFrames: '3',
                 mergeTextFrames: '2',
                 changeImageRatio: JSON.stringify({
@@ -1399,6 +1403,24 @@ test('selection tab filters, splits, merges text and applies the default font an
     assert.match(
       panel.element('panel-selection').textContent || '',
       /Changed 3/
+    );
+
+    assert.ok(panel.element('modify-line-button'));
+    assert.equal(
+      (panel.element('modify-line-width') as unknown as HTMLSelectElement)
+        .value,
+      '0.5'
+    );
+    await panel.input('modify-line-width', '1');
+    await panel.click('modify-line-button');
+    await panel.flush();
+    assert.deepEqual(panel.requests.at(-1), {
+      operation: 'changeSelectedLineWidth',
+      args: [1]
+    });
+    assert.match(
+      panel.element('panel-selection').textContent || '',
+      /Changed 2/
     );
     assert.deepEqual(panel.alerts, []);
   } finally {

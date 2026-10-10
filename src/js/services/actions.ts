@@ -248,6 +248,20 @@ async function mergeText(): Promise<void> {
   await bridge.call('mergeTextFrames');
 }
 
+async function changeSelectedLineWidth(): Promise<LineWidthResult> {
+  const result = await bridge.call(
+    'changeSelectedLineWidth',
+    get(settings).lineWidth
+  );
+  try {
+    return JSON.parse(result) as LineWidthResult;
+  } catch (error) {
+    throw new HostError('errors.parseLineWidthResult', {
+      message: String(error)
+    });
+  }
+}
+
 async function copySpacing(direction: Direction): Promise<void> {
   const result = await bridge.call('copySpacing', direction);
   const spacing = Number(Number(result).toFixed(3));
@@ -300,6 +314,11 @@ export interface TextSizeResult {
   changed: number;
   size: number;
   font: string;
+}
+
+export interface LineWidthResult {
+  changed: number;
+  width: number;
 }
 
 export interface ImageRatioResult {
@@ -412,6 +431,7 @@ export const actions = {
   filterText: () => run(filterText),
   splitText: () => run(splitText),
   mergeText: () => run(mergeText),
+  changeSelectedLineWidth: () => run(changeSelectedLineWidth),
   filterSelection: (mode: 'textOnly' | 'pathsOnly' | 'shapesOnly') =>
     run(async () => {
       await bridge.call('filterSelection', mode);

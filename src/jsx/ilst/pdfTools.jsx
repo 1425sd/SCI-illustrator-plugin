@@ -803,6 +803,60 @@ function pdfCollectTextFrames(item, result) {
     pdfCollectTextFrames(children[i], result);
 }
 
+// 递归收集可描边的路径：普通路径直接收，复合路径收其内部 pathItems
+function pdfCollectPathItems(item, result) {
+  if (!item) return;
+  try {
+    if (item.typename === 'PathItem') {
+      pdfPushUnique(result, item);
+      return;
+    }
+    if (item.typename === 'CompoundPathItem' && item.pathItems) {
+      for (var p = 0; p < item.pathItems.length; p++)
+        pdfPushUnique(result, item.pathItems[p]);
+      return;
+    }
+  } catch (e) {}
+  var children = pdfChildrenArray(item);
+  for (var i = 0; i < children.length; i++)
+    pdfCollectPathItems(children[i], result);
+}
+
+// 修改线条：把选中对象内的路径（含组内、复合路径内部）统一改为指定线宽。
+// 未描边的路径启用描边（描边颜色保持原有，填充不动）。
+function changeSelectedLineWidth(width) {
+  if (app.documents.length === 0) return sciError('errors.noDocument');
+  width = Number(width);
+  if (width !== 0.25 && width !== 0.5 && width !== 0.75 && width !== 1)
+    return sciError('errors.invalidLineWidth');
+  var doc = app.activeDocument,
+    selection = doc.selection;
+  if (!selection || selection.length === 0)
+    return sciError('errors.selectObjects');
+  var saved = [],
+    paths = [];
+  for (var i = 0; i < selection.length; i++) {
+    saved.push(selection[i]);
+    pdfCollectPathItems(selection[i], paths);
+  }
+  if (paths.length === 0) return sciError('errors.noStrokeTargets');
+  var changed = 0;
+  try {
+    for (var f = 0; f < paths.length; f++) {
+      if (!pdfCanEdit(paths[f])) continue;
+      paths[f].stroked = true;
+      paths[f].strokeWidth = width;
+      changed++;
+    }
+  } catch (lineError) {
+    pdfRestoreSelection(doc, saved);
+    return sciError('errors.lineWidthFailed', [lineError.message]);
+  }
+  pdfRestoreSelection(doc, saved);
+  if (changed === 0) return sciError('errors.noStrokeTargets');
+  return JSON.stringify({ changed: changed, width: width });
+}
+
 // 修改文字：把选中文本对象（含组内）改为指定字体和字号。
 // 字体解析失败时先报错不动任何对象；单个文本框应用失败只跳过该框。
 function changeSelectedTextSize(font, size) {

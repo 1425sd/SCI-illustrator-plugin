@@ -94,6 +94,7 @@ export interface HostArguments {
   changeImageRatio: [number, RatioAnchor];
   splitTextFrames: [];
   mergeTextFrames: [];
+  changeSelectedLineWidth: [number];
 }
 
 export type HostOperation = keyof HostArguments;

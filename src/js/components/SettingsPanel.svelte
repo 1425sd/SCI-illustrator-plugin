@@ -43,6 +43,19 @@
         <option value={8}>8 pt</option>
       </select>
     </div>
+    <div class="input-group">
+      <label for="default-line-width">{$t('settings.defaultLine')}</label>
+      <select
+        id="default-line-width"
+        use:tooltip={$t('settings.defaultLineHint')}
+        bind:value={$settings.lineWidth}
+      >
+        <option value={0.25}>0.25 pt</option>
+        <option value={0.5}>0.5 pt</option>
+        <option value={0.75}>0.75 pt</option>
+        <option value={1}>1 pt</option>
+      </select>
+    </div>
   </div>
   <p class="plugin-version">{$t('settings.version', ['v' + version])}</p>
 </div>

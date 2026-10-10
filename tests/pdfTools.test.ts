@@ -399,6 +399,27 @@ test('menu commands are skipped when the selection cannot be set', () => {
   assert.equal(clipped.clipped, true);
 });
 
+test('selected paths change stroke width, unstroked paths get a stroke', () => {
+  const plain = path([0, 100, 40, 0], { stroked: true, strokeWidth: 2 });
+  const bare = path([50, 100, 90, 0]);
+  const compound = {
+    typename: 'CompoundPathItem',
+    pathItems: [path([0, 50, 40, 0], { stroked: true, strokeWidth: 1 })],
+    tags: []
+  };
+  const root = group([plain, bare, compound]);
+  const { call } = fixture([root]);
+
+  assert.deepEqual(call('changeSelectedLineWidth', [0.75]), {
+    ok: true,
+    data: JSON.stringify({ changed: 3, width: 0.75 })
+  });
+  assert.equal(plain.strokeWidth, 0.75);
+  assert.equal(bare.stroked, true);
+  assert.equal(bare.strokeWidth, 0.75);
+  assert.equal(compound.pathItems[0].strokeWidth, 0.75);
+});
+
 test('image ratio changes use the requested anchor and preserve object centers', () => {
   const first = resizeable([0, 100, 40, 0]);
   const second = resizeable([100, 80, 160, 20]);
@@ -507,5 +528,16 @@ test('PDF operations validate documents, selections, ratios and anchors', () => 
       { typename: 'TextFrame', textRange: { characterAttributes: {} } }
     ]).call('changeSelectedTextSize', ['BogusFont', 5]).error,
     'errors.invalidFont'
+  );
+  assert.equal(
+    fixture([resizeable([0, 10, 10, 0])]).call('changeSelectedLineWidth', [2])
+      .error,
+    'errors.invalidLineWidth'
+  );
+  assert.equal(
+    fixture([
+      { typename: 'TextFrame', textRange: { characterAttributes: {} } }
+    ]).call('changeSelectedLineWidth', [0.5]).error,
+    'errors.noStrokeTargets'
   );
 });
