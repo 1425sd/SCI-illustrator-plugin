@@ -20,6 +20,8 @@ export interface Settings {
   labelsOrder: Order;
   labelsReverseOrder: boolean;
   autoUpdateIndex: boolean;
+  textFont: string;
+  textSize: number;
   zoomLineWidth: number;
   zoomLineColor: string;
   zoomLineStyle: string;
@@ -51,6 +53,8 @@ export const defaults: Settings = {
   labelsOrder: 'grid',
   labelsReverseOrder: false,
   autoUpdateIndex: true,
+  textFont: 'ArialMT',
+  textSize: 6,
   zoomLineWidth: 1.5,
   zoomLineColor: '#ff0000',
   zoomLineStyle: 'dash',
@@ -122,6 +126,12 @@ export function normalizeSettings(value: unknown): Settings {
   if (!/^#[0-9a-f]{6}$/i.test(result.fontColor))
     result.fontColor = defaults.fontColor;
   if (!result.fontFamily) result.fontFamily = defaults.fontFamily;
+  if (
+    !['ArialMT', 'TimesNewRomanPSMT', 'Helvetica'].includes(result.textFont)
+  )
+    result.textFont = defaults.textFont;
+  if (![5, 6, 7, 8].includes(result.textSize))
+    result.textSize = defaults.textSize;
   if (result.zoomLineWidth <= 0) result.zoomLineWidth = defaults.zoomLineWidth;
   if (!isLayerColor(result.pseudocolorLut))
     result.pseudocolorLut = defaults.pseudocolorLut;

@@ -148,28 +148,53 @@ function pdfRunMenuOnItem(doc, item, command) {
   }
 }
 
-function pdfArialFontName(item) {
+// 按字族解析变体：保留文本原有的粗体/斜体倾向，找不到变体时退回基础名。
+// Windows 常年没有 Helvetica，逐个候选尝试，全找不到返回 null。
+var PDF_FONT_VARIANTS = {
+  ArialMT: [
+    'Arial-BoldItalicMT',
+    'Arial-BoldMT',
+    'Arial-ItalicMT',
+    'ArialMT'
+  ],
+  TimesNewRomanPSMT: [
+    'TimesNewRomanPS-BoldItalicMT',
+    'TimesNewRomanPS-BoldMT',
+    'TimesNewRomanPS-ItalicMT',
+    'TimesNewRomanPSMT'
+  ],
+  Helvetica: [
+    'Helvetica-BoldOblique',
+    'Helvetica-Bold',
+    'Helvetica-Oblique',
+    'Helvetica'
+  ]
+};
+
+function pdfResolveFontFamily(item, base) {
+  var variants = PDF_FONT_VARIANTS[base];
+  if (!variants) return null;
   var name = '';
   try {
     name = String(item.textRange.characterAttributes.textFont.name || '');
   } catch (e) {}
   var bold = /bold/i.test(name),
     italic = /italic|oblique/i.test(name),
-    names = [];
-  if (bold && italic) names.push('Arial-BoldItalicMT');
-  if (bold) names.push('Arial-BoldMT');
-  if (italic) names.push('Arial-ItalicMT');
-  names.push('ArialMT');
-  for (var i = 0; i < names.length; i++) {
+    candidates = [];
+  if (bold && italic) candidates.push(variants[0]);
+  if (bold) candidates.push(variants[1]);
+  if (italic) candidates.push(variants[2]);
+  candidates.push(variants[3]);
+  for (var i = 0; i < candidates.length; i++) {
     try {
-      return app.textFonts.getByName(names[i]);
+      return app.textFonts.getByName(candidates[i]);
     } catch (fontError) {}
   }
-  try {
-    return app.textFonts.getByName('Arial');
-  } catch (fallbackError) {
-    return null;
-  }
+  return null;
+}
+
+function pdfArialFontName(item) {
+  return pdfResolveFontFamily(item, 'ArialMT');
 }
 
 function pdfApplyArial(item, stats) {
@@ -778,10 +803,15 @@ function pdfCollectTextFrames(item, result) {
     pdfCollectTextFrames(children[i], result);
 }
 
-function changeSelectedTextSize(size) {
+// 修改文字：把选中文本对象（含组内）改为指定字体和字号。
+// 字体解析失败时先报错不动任何对象；单个文本框应用失败只跳过该框。
+function changeSelectedTextSize(font, size) {
   if (app.documents.length === 0) return sciError('errors.noDocument');
   size = Number(size);
-  if (size !== 5 && size !== 6) return sciError('errors.invalidTextSize');
+  if (size !== 5 && size !== 6 && size !== 7 && size !== 8)
+    return sciError('errors.invalidTextSize');
+  if (font !== 'ArialMT' && font !== 'TimesNewRomanPSMT' && font !== 'Helvetica')
+    return sciError('errors.invalidFont');
   var doc = app.activeDocument,
     selection = doc.selection;
   if (!selection || selection.length === 0)
@@ -793,11 +823,23 @@ function changeSelectedTextSize(size) {
     pdfCollectTextFrames(selection[i], frames);
   }
   if (frames.length === 0) return sciError('errors.noTextFrames');
+  // 字族整体可用性预检：基础字体不存在（如 Windows 无 Helvetica）直接报错
+  try {
+    app.textFonts.getByName(PDF_FONT_VARIANTS[font][3]);
+  } catch (fontError) {
+    return sciError('errors.fontNotFound', [font]);
+  }
   var changed = 0;
   try {
     for (var f = 0; f < frames.length; f++) {
       if (!pdfCanEdit(frames[f])) continue;
       frames[f].textRange.characterAttributes.size = size;
+      var resolved = pdfResolveFontFamily(frames[f], font);
+      if (resolved) {
+        try {
+          frames[f].textRange.characterAttributes.textFont = resolved;
+        } catch (applyError) {}
+      }
       changed++;
     }
   } catch (sizeError) {
@@ -806,7 +848,7 @@ function changeSelectedTextSize(size) {
   }
   pdfRestoreSelection(doc, saved);
   if (changed === 0) return sciError('errors.noTextFrames');
-  return JSON.stringify({ changed: changed, size: size });
+  return JSON.stringify({ changed: changed, size: size, font: font });
 }
 
 function changeImageRatio(ratio, anchor) {

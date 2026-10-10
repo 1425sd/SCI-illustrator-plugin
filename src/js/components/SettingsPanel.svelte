@@ -18,6 +18,31 @@
         <option value="zh_CN">{$t('settings.chinese')}</option>
       </select>
     </div>
+    <div class="input-group">
+      <label for="default-font">{$t('settings.defaultFont')}</label>
+      <select
+        id="default-font"
+        use:tooltip={$t('settings.defaultFontHint')}
+        bind:value={$settings.textFont}
+      >
+        <option value="ArialMT">{$t('settings.fontArial')}</option>
+        <option value="TimesNewRomanPSMT">{$t('settings.fontTimes')}</option>
+        <option value="Helvetica">{$t('settings.fontHelvetica')}</option>
+      </select>
+    </div>
+    <div class="input-group">
+      <label for="default-font-size">{$t('settings.defaultFontSize')}</label>
+      <select
+        id="default-font-size"
+        use:tooltip={$t('settings.defaultFontSizeHint')}
+        bind:value={$settings.textSize}
+      >
+        <option value={5}>5 pt</option>
+        <option value={6}>6 pt</option>
+        <option value={7}>7 pt</option>
+        <option value={8}>8 pt</option>
+      </select>
+    </div>
   </div>
   <p class="plugin-version">{$t('settings.version', ['v' + version])}</p>
 </div>

@@ -81,7 +81,12 @@ function fixture(
   }
   const context = vm.createContext({
     $: {},
-    app: { documents, activeDocument: document, ...appOverrides },
+    app: {
+      documents,
+      activeDocument: document,
+      textFonts: { getByName: (name: string) => ({ name }) },
+      ...appOverrides
+    },
     Transformation: { CENTER: 'center' }
   });
   vm.runInContext(source, context);
@@ -441,22 +446,30 @@ test('ratio change rejects text descendants before changing any object', () => {
   assert.deepEqual(image.geometricBounds, before);
 });
 
-test('selected text can be changed to 5 or 6 pt without changing the font', () => {
+test('selected text changes to the requested font and size, keeping bold variants', () => {
   const text = {
     typename: 'TextFrame',
     textRange: {
-      characterAttributes: { size: 11, textFont: { name: 'ArialMT' } }
+      characterAttributes: { size: 11, textFont: { name: 'Arial-BoldMT' } }
     },
     geometricBounds: [0, 20, 20, 0] as Bounds
   };
   const { document, call } = fixture([text]);
 
-  assert.deepEqual(call('changeSelectedTextSize', [5]), {
+  assert.deepEqual(call('changeSelectedTextSize', ['TimesNewRomanPSMT', 7]), {
     ok: true,
-    data: JSON.stringify({ changed: 1, size: 5 })
+    data: JSON.stringify({
+      changed: 1,
+      size: 7,
+      font: 'TimesNewRomanPSMT'
+    })
   });
-  assert.equal(text.textRange.characterAttributes.size, 5);
-  assert.equal(text.textRange.characterAttributes.textFont.name, 'ArialMT');
+  assert.equal(text.textRange.characterAttributes.size, 7);
+  // 原文本是粗体，换成 Times 家族时保留 Bold 变体
+  assert.equal(
+    text.textRange.characterAttributes.textFont.name,
+    'TimesNewRomanPS-BoldMT'
+  );
   assert.equal(document.selection[0], text);
 });
 
@@ -486,7 +499,13 @@ test('PDF operations validate documents, selections, ratios and anchors', () => 
   assert.equal(
     fixture([
       { typename: 'TextFrame', textRange: { characterAttributes: {} } }
-    ]).call('changeSelectedTextSize', [7]).error,
+    ]).call('changeSelectedTextSize', ['ArialMT', 9]).error,
     'errors.invalidTextSize'
+  );
+  assert.equal(
+    fixture([
+      { typename: 'TextFrame', textRange: { characterAttributes: {} } }
+    ]).call('changeSelectedTextSize', ['BogusFont', 5]).error,
+    'errors.invalidFont'
   );
 });

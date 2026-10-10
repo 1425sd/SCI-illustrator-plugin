@@ -299,6 +299,7 @@ export interface PdfCleanupResult {
 export interface TextSizeResult {
   changed: number;
   size: number;
+  font: string;
 }
 
 export interface ImageRatioResult {
@@ -329,9 +330,12 @@ async function changeImageRatio(): Promise<ImageRatioResult> {
 }
 
 async function changeSelectedTextSize(): Promise<TextSizeResult> {
-  const size = Number(get(workspace).pdfTextSize);
-  if (size !== 5 && size !== 6) fail('errors.invalidTextSize');
-  const result = await bridge.call('changeSelectedTextSize', size);
+  const s = get(settings);
+  const result = await bridge.call(
+    'changeSelectedTextSize',
+    s.textFont,
+    s.textSize
+  );
   try {
     return JSON.parse(result) as TextSizeResult;
   } catch (error) {

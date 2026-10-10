@@ -4,12 +4,10 @@
   import {
     actions,
     type ImageRatioResult,
-    type PdfCleanupResult,
-    type TextSizeResult
+    type PdfCleanupResult
   } from '../services/actions';
 
   let cleanupResult = $state<PdfCleanupResult | null>(null);
-  let textSizeResult = $state<TextSizeResult | null>(null);
   let ratioResult = $state<ImageRatioResult | null>(null);
 
   async function cleanupPdf(): Promise<void> {
@@ -23,13 +21,6 @@
     ratioResult = null;
     await actions.changeImageRatio().then((result) => {
       if (result) ratioResult = result;
-    });
-  }
-
-  async function changeTextSize(): Promise<void> {
-    textSizeResult = null;
-    await actions.changeSelectedTextSize().then((result) => {
-      if (result) textSizeResult = result;
     });
   }
 
@@ -53,18 +44,6 @@
         class="btn btn-primary"
         id="cleanup-pdf-button"
         onclick={cleanupPdf}>{$t('pdf.cleanup')}</button
-      >
-    </div>
-    <div class="text-tools">
-      <label for="pdf-text-size">{$t('pdf.textSize')}</label>
-      <select id="pdf-text-size" bind:value={$workspace.pdfTextSize}>
-        <option value={6}>6 pt</option>
-        <option value={5}>5 pt</option>
-      </select>
-      <button
-        class="btn btn-secondary btn-sm"
-        id="change-pdf-text-size-button"
-        onclick={changeTextSize}>{$t('pdf.modifyText')}</button
       >
     </div>
     {#if cleanupResult}
@@ -97,14 +76,6 @@
         {$t('pdf.cleanupScope', [
           String(cleanupResult.selectionRoots),
           String(cleanupResult.scopeItems)
-        ])}
-      </div>
-    {/if}
-    {#if textSizeResult}
-      <div class="status" role="status">
-        {$t('pdf.modifyTextSuccess', [
-          String(textSizeResult.changed),
-          String(textSizeResult.size)
         ])}
       </div>
     {/if}
@@ -183,26 +154,5 @@
   .status-warning {
     margin-top: 4px;
     color: var(--warning, #d97706);
-  }
-
-  .text-tools {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 10px;
-  }
-
-  .text-tools label {
-    color: var(--muted);
-    white-space: nowrap;
-  }
-
-  .text-tools select {
-    flex: 0 0 72px;
-  }
-
-  .btn-sm {
-    padding: 4px 8px;
-    font-size: 12px;
   }
 </style>

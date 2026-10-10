@@ -669,7 +669,13 @@ async function createPanel(
                   removedPaths: 2,
                   removedGroups: 0
                 }),
-                changeSelectedTextSize: JSON.stringify({ changed: 3, size: 5 }),
+                changeSelectedTextSize: JSON.stringify({
+                  changed: 3,
+                  size: 5,
+                  font: 'ArialMT'
+                }),
+                splitTextFrames: '3',
+                mergeTextFrames: '2',
                 changeImageRatio: JSON.stringify({
                   changed: 2,
                   ratio: 1.5,
@@ -1304,7 +1310,7 @@ test('production controls preserve dynamic placeholders, arrange visibility and 
   }
 });
 
-test('PDF tools tab cleans selected PDFs, changes text size and changes image ratios', async () => {
+test('PDF tools tab cleans selected PDFs and changes image ratios', async () => {
   const panel = await createPanel();
   try {
     const pdfTab = [...panel.window.document.querySelectorAll('.tab')].find(
@@ -1314,11 +1320,6 @@ test('PDF tools tab cleans selected PDFs, changes text size and changes image ra
     (pdfTab as unknown as HTMLElement).click();
     await panel.flush();
     assert.ok(panel.element('cleanup-pdf-button'));
-    assert.ok(panel.element('change-pdf-text-size-button'));
-    assert.equal(
-      (panel.element('pdf-text-size') as unknown as HTMLSelectElement).value,
-      '6'
-    );
     assert.ok(panel.element('image-ratio'));
     assert.ok(panel.element('ratio-anchor'));
 
@@ -1330,15 +1331,6 @@ test('PDF tools tab cleans selected PDFs, changes text size and changes image ra
     });
     assert.match(panel.element('panel-pdf').textContent || '', /Removed 1/);
 
-    await panel.input('pdf-text-size', '5');
-    await panel.click('change-pdf-text-size-button');
-    await panel.flush();
-    assert.deepEqual(panel.requests.at(-1), {
-      operation: 'changeSelectedTextSize',
-      args: [5]
-    });
-    assert.match(panel.element('panel-pdf').textContent || '', /Changed 3/);
-
     await panel.input('image-ratio', '2');
     await panel.input('ratio-anchor', 'width');
     await panel.click('change-ratio-button');
@@ -1348,6 +1340,66 @@ test('PDF tools tab cleans selected PDFs, changes text size and changes image ra
       args: [2, 'width']
     });
     assert.match(panel.element('panel-pdf').textContent || '', /Adjusted 2/);
+    assert.deepEqual(panel.alerts, []);
+  } finally {
+    await panel.window.happyDOM.close();
+  }
+});
+
+test('selection tab filters, splits, merges text and applies the default font and size', async () => {
+  const panel = await createPanel();
+  try {
+    const selectionTab = [
+      ...panel.window.document.querySelectorAll('.tab')
+    ].find(
+      (tab) => tab.textContent?.includes('Selection') || tab.textContent?.includes('选择')
+    );
+    assert.ok(selectionTab);
+    (selectionTab as unknown as HTMLElement).click();
+    await panel.flush();
+    assert.ok(panel.element('select-text-only-button'));
+    assert.ok(panel.element('select-paths-only-button'));
+    assert.ok(panel.element('select-shapes-only-button'));
+    assert.ok(panel.element('split-text-button'));
+    assert.ok(panel.element('merge-text-button'));
+    assert.ok(panel.element('modify-text-button'));
+    assert.equal(
+      (panel.element('modify-text-font') as unknown as HTMLSelectElement)
+        .value,
+      'ArialMT'
+    );
+    assert.equal(
+      (panel.element('modify-text-size') as unknown as HTMLSelectElement)
+        .value,
+      '6'
+    );
+
+    await panel.click('split-text-button');
+    await panel.flush();
+    assert.deepEqual(panel.requests.at(-1), {
+      operation: 'splitTextFrames',
+      args: []
+    });
+
+    await panel.click('merge-text-button');
+    await panel.flush();
+    assert.deepEqual(panel.requests.at(-1), {
+      operation: 'mergeTextFrames',
+      args: []
+    });
+
+    await panel.input('modify-text-font', 'TimesNewRomanPSMT');
+    await panel.input('modify-text-size', '5');
+    await panel.click('modify-text-button');
+    await panel.flush();
+    assert.deepEqual(panel.requests.at(-1), {
+      operation: 'changeSelectedTextSize',
+      args: ['TimesNewRomanPSMT', 5]
+    });
+    assert.match(
+      panel.element('panel-selection').textContent || '',
+      /Changed 3/
+    );
     assert.deepEqual(panel.alerts, []);
   } finally {
     await panel.window.happyDOM.close();

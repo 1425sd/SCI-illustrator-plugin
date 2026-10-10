@@ -22,7 +22,6 @@
   import SpacingPanel from '../components/SpacingPanel.svelte';
   import SwapPanel from '../components/SwapPanel.svelte';
   import LabelsPanel from '../components/LabelsPanel.svelte';
-  import TextToolsPanel from '../components/TextToolsPanel.svelte';
   import SizePanel from '../components/SizePanel.svelte';
   import BorderPanel from '../components/BorderPanel.svelte';
   import ScalebarPanel from '../components/ScalebarPanel.svelte';
@@ -44,7 +43,6 @@
     { id: 'swap', component: SwapPanel },
     { id: 'size', component: SizePanel },
     { id: 'labels', component: LabelsPanel },
-    { id: 'text', component: TextToolsPanel },
     { id: 'border', component: BorderPanel },
     { id: 'pseudocolor', component: PseudocolorPanel },
     { id: 'scalebar', component: ScalebarPanel },
