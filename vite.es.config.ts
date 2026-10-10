@@ -9,6 +9,7 @@ export const hostSources = [
   'src/jsx/ilst/paletteFill.jsx',
   'src/jsx/ilst/pseudocolorLayers.jsx',
   'src/jsx/ilst/scalebar.jsx',
+  'src/jsx/ilst/textTools.jsx',
   'src/jsx/index.ts'
 ];
 
@@ -26,15 +27,14 @@ export function isHostSource(file: string): boolean {
  * The build tests parse the complete output with an ES3 parser.
  */
 export function buildExtendScript(outDir: string): void {
-  const [json, legacy, pdfTools, paletteFill, layers, scalebar, entry] = hostSources.map(
-    (file) => fs.readFileSync(file, 'utf8')
-  );
+  const [json, legacy, pdfTools, paletteFill, layers, scalebar, textTools, entry] =
+    hostSources.map((file) => fs.readFileSync(file, 'utf8'));
   const dispatcher = ts.transpileModule(entry, {
     compilerOptions: { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.None }
   }).outputText;
   // $.evalFile does not reliably detect UTF-8 without a BOM. Chinese text in
   // the algorithms otherwise loads with the system encoding and can fail.
-  const output = `\uFEFF${json}\n(function () {\n${legacy}\n${pdfTools}\n${paletteFill}\n${layers}\n${scalebar}\n${dispatcher}\n}());\n`;
+  const output = `\uFEFF${json}\n(function () {\n${legacy}\n${pdfTools}\n${paletteFill}\n${layers}\n${scalebar}\n${textTools}\n${dispatcher}\n}());\n`;
   const hostDir = path.join(outDir, 'jsx');
   fs.mkdirSync(hostDir, { recursive: true });
   fs.writeFileSync(path.join(hostDir, 'index.js'), output);

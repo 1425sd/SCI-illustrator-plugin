@@ -33,6 +33,7 @@ declare function applyScalebar(...args: unknown[]): string;
 declare function cleanupPdfSelection(...args: unknown[]): string;
 declare function changeSelectedTextSize(...args: unknown[]): string;
 declare function changeImageRatio(...args: unknown[]): string;
+declare function splitTextFrames(...args: unknown[]): string;
 
 var methods: Record<string, (...args: unknown[]) => string> = {
   arrangeImages: arrangeImages,
@@ -65,7 +66,8 @@ var methods: Record<string, (...args: unknown[]) => string> = {
   applyScalebar: applyScalebar,
   cleanupPdfSelection: cleanupPdfSelection,
   changeSelectedTextSize: changeSelectedTextSize,
-  changeImageRatio: changeImageRatio
+  changeImageRatio: changeImageRatio,
+  splitTextFrames: splitTextFrames
 };
 
 $['com.achuan-2.illustrator_sci_toolbox'] = {

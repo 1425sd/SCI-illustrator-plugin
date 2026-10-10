@@ -92,6 +92,7 @@ export interface HostArguments {
   cleanupPdfSelection: [];
   changeSelectedTextSize: [number];
   changeImageRatio: [number, RatioAnchor];
+  splitTextFrames: [];
 }
 
 export type HostOperation = keyof HostArguments;

@@ -240,6 +240,10 @@ async function filterText(): Promise<void> {
   if (result === 'Success|0') fail('errors.noTextFrames');
 }
 
+async function splitText(): Promise<void> {
+  await bridge.call('splitTextFrames');
+}
+
 async function copySpacing(direction: Direction): Promise<void> {
   const result = await bridge.call('copySpacing', direction);
   const spacing = Number(Number(result).toFixed(3));
@@ -394,6 +398,7 @@ export const actions = {
   updateLabels: () => run(updateLabels),
   undoLabelIndex,
   filterText: () => run(filterText),
+  splitText: () => run(splitText),
   filterSelection: (mode: 'textOnly' | 'pathsOnly' | 'shapesOnly') =>
     run(async () => {
       await bridge.call('filterSelection', mode);
