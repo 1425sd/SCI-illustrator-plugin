@@ -3,9 +3,11 @@
   import { t } from '../i18n';
   import { actions } from '../services/actions';
   import { tooltip } from '../services/tooltip';
+  import HelpBadge from './HelpBadge.svelte';
 </script>
 
 <div class="panel active" id="panel-relative">
+  <h3 class="panel-help-title">{$t('tabs.relative')}<HelpBadge key="help.relative" /></h3>
   <div class="grid">
     <div class="input-group">
       <label for="delta-x">{$t('relative.deltaX')}</label>
@@ -86,10 +88,18 @@
     </div>
   </div>
   <div class="toolbar">
-    <button class="btn" id="copy-pos-button" onclick={actions.copyPosition}
+    <button
+      class="btn"
+      id="copy-pos-button"
+      use:tooltip={$t('relative.copyHint')}
+      onclick={actions.copyPosition}
       >{$t('common.copy')}</button
     >
-    <button class="btn" id="paste-pos-button" onclick={actions.pastePosition}
+    <button
+      class="btn"
+      id="paste-pos-button"
+      use:tooltip={$t('relative.pasteHint')}
+      onclick={actions.pastePosition}
       >{$t('common.paste')}</button
     >
   </div>

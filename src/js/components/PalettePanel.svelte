@@ -272,6 +272,7 @@
       errorKey = 'palettes.errors.clipboard';
     }
   }
+  import HelpBadge from './HelpBadge.svelte';
 </script>
 
 <div class="panel active" id="panel-palettes">
@@ -287,6 +288,7 @@
         >
       {/each}
     </nav>
+    <HelpBadge key="help.palettes" />
     <button
       class="btn settings-button"
       id="palette-manage-groups"

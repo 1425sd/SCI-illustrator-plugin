@@ -3,6 +3,7 @@
   import { t } from '../i18n';
   import { actions } from '../services/actions';
   import ArrangementIcon from './ArrangementIcon.svelte';
+  import HelpBadge from './HelpBadge.svelte';
   import { tooltip } from '../services/tooltip';
   import type { AlignmentMode, DistributionMode } from '../../shared/host';
 
@@ -17,14 +18,14 @@
 </script>
 
 <div class="panel active" id="panel-distribute">
-  <h3 use:tooltip={$t('alignment.hint')}>{$t('alignment.title')}</h3>
+  <h3>{$t('alignment.title')}<HelpBadge key="help.distribute.alignment" /></h3>
   {#each alignmentRows as row}
     <div class="toolbar">
       {#each row as mode}
         <button
           class="btn arrangement-icon-button"
           id={`align-${mode}-button`}
-          title={$t(`alignment.${mode}`)}
+          use:tooltip={$t('alignment.buttonHint', [$t(`alignment.${mode}`)])}
           aria-label={$t(`alignment.${mode}`)}
           onclick={() => actions.alignObjects(mode)}
           ><ArrangementIcon kind="align" {mode} /></button
@@ -33,14 +34,14 @@
     </div>
   {/each}
 
-  <h3 use:tooltip={$t('distribution.hint')}>{$t('distribution.title')}</h3>
+  <h3>{$t('distribution.title')}<HelpBadge key="help.distribute.distribution" /></h3>
   {#each distributionRows as row}
     <div class="toolbar">
       {#each row as mode}
         <button
           class="btn arrangement-icon-button"
           id={`distribute-${mode}-button`}
-          title={$t(`distribution.${mode}`)}
+          use:tooltip={$t('distribution.buttonHint', [$t(`distribution.${mode}`)])}
           aria-label={$t(`distribution.${mode}`)}
           onclick={() => actions.distributeObjects(mode)}
           ><ArrangementIcon kind="distribute" {mode} /></button
@@ -49,7 +50,7 @@
     </div>
   {/each}
 
-  <h3>{$t('spacing.even')}</h3>
+  <h3>{$t('spacing.even')}<HelpBadge key="help.distribute.spacing" /></h3>
   <div class="toolbar">
     <button
       class="btn spacing-button"
@@ -73,7 +74,7 @@
       )}</button
     >
   </div>
-  <h3>{$t('spacing.paste')}</h3>
+  <h3>{$t('spacing.paste')}<HelpBadge key="help.distribute.paste" /></h3>
 
   <div class="grid">
     <div class="input-group">
@@ -92,18 +93,21 @@
     <button
       class="btn"
       id="copy-spacing-horizontal-button"
+      use:tooltip={$t('spacing.copyHorizontalHint')}
       onclick={() => actions.copySpacing('horizontal')}
       >{$t('common.copy')}</button
     >
     <button
       class="btn"
       id="move-left-horizontal-button"
+      use:tooltip={$t('spacing.moveLeftHint')}
       onclick={() => actions.pasteSpacing('horizontal', true)}
       >{$t('spacing.moveLeft')}</button
     >
     <button
       class="btn"
       id="move-right-horizontal-button"
+      use:tooltip={$t('spacing.moveRightHint')}
       onclick={() => actions.pasteSpacing('horizontal', false)}
       >{$t('spacing.moveRight')}</button
     >
@@ -124,18 +128,21 @@
     <button
       class="btn"
       id="copy-spacing-vertical-button"
+      use:tooltip={$t('spacing.copyVerticalHint')}
       onclick={() => actions.copySpacing('vertical')}
       >{$t('common.copy')}</button
     >
     <button
       class="btn"
       id="move-top-vertical-button"
+      use:tooltip={$t('spacing.moveTopHint')}
       onclick={() => actions.pasteSpacing('vertical', true)}
       >{$t('spacing.moveTop')}</button
     >
     <button
       class="btn"
       id="move-bottom-vertical-button"
+      use:tooltip={$t('spacing.moveBottomHint')}
       onclick={() => actions.pasteSpacing('vertical', false)}
       >{$t('spacing.moveBottom')}</button
     >

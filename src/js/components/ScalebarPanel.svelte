@@ -223,6 +223,8 @@
       };
     }
   });
+  import { tooltip } from '../services/tooltip';
+  import HelpBadge from './HelpBadge.svelte';
 </script>
 
 <div class="panel active" id="panel-scalebar">
@@ -239,7 +241,7 @@
       }}
     >
       <fieldset class="settings-group">
-        <legend>{$t('scale.fov')}</legend>
+        <legend>{$t('scale.fov')}<HelpBadge key="help.scale.fov" /></legend>
         <div class="grid">
           {#if options.orientation === 'horizontal'}
             <div class="input-group">
@@ -277,7 +279,7 @@
         </div>
       </fieldset>
       <fieldset class="settings-group">
-        <legend>{$t('scale.barStyle')}</legend>
+        <legend>{$t('scale.barStyle')}<HelpBadge key="help.scale.barStyle" /></legend>
         <div class="grid">
           <div class="input-group">
             <label for="scale-orientation">{$t('scale.orientation')}</label
@@ -355,7 +357,7 @@
         </div>
       </fieldset>
       <fieldset class="settings-group">
-        <legend>{$t('scale.fontStyle')}</legend>
+        <legend>{$t('scale.fontStyle')}<HelpBadge key="help.scale.fontStyle" /></legend>
         <div class="grid">
           <div class="input-group">
             <label for="scale-show-text">{$t('scale.showText')}</label><input
@@ -394,6 +396,7 @@
         <button
           id="apply-scalebar-button"
           class="btn btn-primary"
+          use:tooltip={$t('scale.applyHint')}
           disabled={busy}
           onclick={apply}>{$t(batch ? 'scale.batchAdd' : 'scale.add')}</button
         >

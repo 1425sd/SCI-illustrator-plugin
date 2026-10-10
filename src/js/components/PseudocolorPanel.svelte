@@ -3,11 +3,13 @@
   import PseudocolorLayersPanel from './PseudocolorLayersPanel.svelte';
   let busy = $state(false);
   let mergeRevision = $state(0);
+  import { tooltip } from '../services/tooltip';
+  import HelpBadge from './HelpBadge.svelte';
 </script>
 
 <div class="panel active" id="panel-pseudocolor">
   <fieldset id="pseudocolor-group">
-    <legend>{$t('tabs.pseudocolor')}</legend>
+    <legend>{$t('tabs.pseudocolor')}<HelpBadge key="help.pseudocolor" /></legend>
     <PseudocolorLayersPanel
       mode="batch"
       bind:busy
@@ -15,7 +17,7 @@
     />
   </fieldset>
   <fieldset id="merge-channels-group">
-    <legend>{$t('merge.title')}</legend>
+    <legend>{$t('merge.title')}<HelpBadge key="help.merge" /></legend>
     {#key mergeRevision}
       <PseudocolorLayersPanel mode="merge" bind:busy />
     {/key}

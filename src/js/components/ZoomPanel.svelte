@@ -44,9 +44,12 @@
       loading = false;
     }
   }
+  import { tooltip } from '../services/tooltip';
+  import HelpBadge from './HelpBadge.svelte';
 </script>
 
 <div class="panel active" id="panel-zoom">
+  <h3 class="panel-help-title">{$t('tabs.zoom')}<HelpBadge key="help.zoom" /></h3>
   <fieldset class="settings-group">
     <legend>{$t('zoom.rectSettings')}</legend>
     <div class="grid">
@@ -154,6 +157,7 @@
     <button
       class="btn btn-primary make-zoom-btn"
       id="make-zoom-button"
+      use:tooltip={$t('zoom.makeZoomHint')}
       disabled={loading}
       onclick={openEditor}
     >

@@ -241,6 +241,17 @@ input[type='checkbox'] {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
 }
 
+/* Section heading carrying a "?" help badge at its right edge */
+.panel-help-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 /* Swap panel: two-column layout (left col: TL,BL ; right col: TR,BR) */
 .swap-grid {
   display: flex;

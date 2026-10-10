@@ -15,15 +15,18 @@
     { anchor: 'BC', label: 'swap.bottomCenter' },
     { anchor: 'BR', label: 'swap.bottomRight' }
   ];
+  import { tooltip } from '../services/tooltip';
+  import HelpBadge from './HelpBadge.svelte';
 </script>
 
 <div class="panel active" id="panel-swap">
+  <h3 class="panel-help-title">{$t('tabs.swap')}<HelpBadge key="help.swap" /></h3>
   <div class="swap-anchor-grid">
     {#each buttons as button}
       <button
         class="btn swap-button"
         id={`swap-${button.anchor.toLowerCase()}-button`}
-        title={$t(button.label)}
+        use:tooltip={$t('swap.buttonHint', [$t(button.label)])}
         aria-label={$t(button.label)}
         onclick={() => actions.swap(button.anchor)}
       >

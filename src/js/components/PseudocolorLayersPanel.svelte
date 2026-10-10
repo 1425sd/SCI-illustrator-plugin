@@ -118,6 +118,7 @@
         .call('cancelPseudocolorLayerTargets', session.sessionId)
         .catch(() => {});
   });
+  import { tooltip } from '../services/tooltip';
 </script>
 
 {#if mode === 'batch'}
@@ -179,6 +180,7 @@
     <button
       id="merge-read-button"
       class="btn"
+      use:tooltip={$t('layers.readHint')}
       onclick={readTargets}
       disabled={busy}>{$t('layers.read')}</button
     >
@@ -186,6 +188,7 @@
   <button
     id={mode === 'merge' ? 'merge-apply-button' : 'pseudocolor-apply-button'}
     class="btn btn-primary"
+    use:tooltip={$t(mode === 'merge' ? 'merge.applyHint' : 'pseudocolor.applyHint')}
     onclick={apply}
     disabled={busy || (mode === 'merge' && !!mergeError)}
   >

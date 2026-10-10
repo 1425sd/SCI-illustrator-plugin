@@ -7,6 +7,7 @@
     type TextSizeResult
   } from '../services/actions';
   import { tooltip } from '../services/tooltip';
+  import HelpBadge from './HelpBadge.svelte';
 
   let textSizeResult = $state<TextSizeResult | null>(null);
   let lineWidthResult = $state<LineWidthResult | null>(null);
@@ -27,7 +28,7 @@
 </script>
 
 <div class="panel active" id="panel-selection">
-  <h3>{$t('selection.filter')}</h3>
+  <h3>{$t('selection.filter')}<HelpBadge key="help.selection.filter" /></h3>
   <div class="toolbar">
     <button
       class="btn btn-primary"
@@ -54,7 +55,7 @@
     >
   </div>
 
-  <h3>{$t('selection.textTools')}</h3>
+  <h3>{$t('selection.textTools')}<HelpBadge key="help.selection.textTools" /></h3>
   <div class="toolbar">
     <button
       class="btn btn-primary"
@@ -71,7 +72,7 @@
     >
   </div>
 
-  <h3>{$t('selection.modifyText')}</h3>
+  <h3>{$t('selection.modifyText')}<HelpBadge key="help.selection.modifyText" /></h3>
   <div class="toolbar">
     <label for="modify-text-font">{$t('selection.font')}</label>
     <select id="modify-text-font" bind:value={$settings.textFont}>
@@ -103,7 +104,7 @@
     </div>
   {/if}
 
-  <h3>{$t('selection.modifyLine')}</h3>
+  <h3>{$t('selection.modifyLine')}<HelpBadge key="help.selection.modifyLine" /></h3>
   <div class="toolbar">
     <label for="modify-line-width">{$t('selection.lineWidth')}</label>
     <select id="modify-line-width" bind:value={$settings.lineWidth}>

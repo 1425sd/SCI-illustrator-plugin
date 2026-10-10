@@ -33,16 +33,19 @@
             : '')
       : ''
   );
+  import { tooltip } from '../services/tooltip';
+  import HelpBadge from './HelpBadge.svelte';
 </script>
 
 <div class="panel active" id="panel-pdf">
   <fieldset>
-    <legend>{$t('pdf.cleanupTitle')}</legend>
+    <legend>{$t('pdf.cleanupTitle')}<HelpBadge key="help.pdf.cleanup" /></legend>
     <p class="panel-description">{$t('pdf.cleanupDescription')}</p>
     <div class="toolbar">
       <button
         class="btn btn-primary"
         id="cleanup-pdf-button"
+        use:tooltip={$t('pdf.cleanupDescription')}
         onclick={cleanupPdf}>{$t('pdf.cleanup')}</button
       >
     </div>
@@ -82,7 +85,7 @@
   </fieldset>
 
   <fieldset>
-    <legend>{$t('pdf.ratioTitle')}</legend>
+    <legend>{$t('pdf.ratioTitle')}<HelpBadge key="help.pdf.ratio" /></legend>
     <p class="panel-description">{$t('pdf.ratioDescription')}</p>
     <div class="grid">
       <div class="input-group">
@@ -107,6 +110,7 @@
       <button
         class="btn btn-primary"
         id="change-ratio-button"
+        use:tooltip={$t('pdf.ratioDescription')}
         onclick={changeRatio}>{$t('pdf.changeRatio')}</button
       >
     </div>

@@ -3,9 +3,11 @@
   import { t } from '../i18n';
   import { actions } from '../services/actions';
   import { tooltip } from '../services/tooltip';
+  import HelpBadge from './HelpBadge.svelte';
 </script>
 
 <div class="panel active" id="panel-border">
+  <h3 class="panel-help-title">{$t('tabs.border')}<HelpBadge key="help.border" /></h3>
   <div class="grid">
     <div class="input-group">
       <label for="border-color">{$t('border.color')}</label>

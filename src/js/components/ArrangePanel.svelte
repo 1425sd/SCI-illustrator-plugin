@@ -3,6 +3,7 @@
   import { t } from '../i18n';
   import { actions } from '../services/actions';
   import { tooltip } from '../services/tooltip';
+  import HelpBadge from './HelpBadge.svelte';
 
   const sizeHints = {
     original: 'arrange.originalHint',
@@ -12,6 +13,7 @@
 </script>
 
 <div class="panel active" id="panel-arrange">
+  <h3 class="panel-help-title">{$t('tabs.arrange')}<HelpBadge key="help.arrange" /></h3>
   <div class="grid">
     <div class="input-group">
       <label for="auto-layout">{$t('arrange.auto')}</label>
@@ -154,6 +156,7 @@
     <button
       class="btn btn-primary"
       id="arrange-button"
+      use:tooltip={$t('arrange.updateHint')}
       onclick={actions.arrange}>{$t('arrange.update')}</button
     >
   </div>

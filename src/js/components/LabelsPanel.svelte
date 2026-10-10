@@ -10,6 +10,7 @@
     offsetWheel
   } from '../services/actions';
   import { tooltip } from '../services/tooltip';
+  import HelpBadge from './HelpBadge.svelte';
 
   let offsetX = $derived($settings.labelOffsetX);
   let offsetY = $derived($settings.labelOffsetY);
@@ -33,6 +34,7 @@
 </script>
 
 <div class="panel active" id="panel-labels">
+  <h3 class="panel-help-title">{$t('tabs.labels')}<HelpBadge key="help.labels" /></h3>
   <div class="grid">
     <div class="input-group">
       <label for="font-family">{$t('labels.fontFamily')}</label>

@@ -31,15 +31,14 @@ test('arrangement icon buttons dispatch every alignment and distribution mode wi
       for (const mode of modes) {
         const button = panel.element(`${prefix}-${mode}-button`);
         assert.ok(button.querySelector('svg path')?.getAttribute('d'));
-        assert.ok(button.getAttribute('title'));
-        assert.equal(button.getAttribute('title'), button.getAttribute('aria-label'));
+        assert.ok(button.getAttribute('aria-label'));
         await panel.click(button.id);
         assert.deepEqual(panel.requests.at(-1), { operation, args: [mode] });
       }
     }
-    assert.equal(panel.element('align-center-button').getAttribute('title'), 'Horizontal and Vertical Align Center');
+    assert.equal(panel.element('align-center-button').getAttribute('aria-label'), 'Horizontal and Vertical Align Center');
     await panel.input('language', 'zh_CN');
-    assert.equal(panel.element('align-center-button').getAttribute('title'), '水平与垂直居中对齐');
+    assert.equal(panel.element('align-center-button').getAttribute('aria-label'), '水平与垂直居中对齐');
     const tab = [...panel.window.document.querySelectorAll('.tab')].find(
       (button) => button.textContent === '排列分布'
     );
@@ -72,14 +71,14 @@ test('swap panel shows nine icon buttons in anchor order and dispatches each anc
       assert.equal(button.querySelectorAll('svg .swap-object').length, 2);
       assert.equal(button.querySelectorAll('svg .reference-mark').length, 2);
       assert.ok(button.querySelector('svg .swap-arrows'));
-      assert.equal(button.getAttribute('title'), button.getAttribute('aria-label'));
+      assert.ok(button.getAttribute('aria-label'));
       await panel.click(button.id);
       assert.deepEqual(panel.requests.at(-1), { operation: 'swapSelectedPositions', args: [anchor] });
     }
     await panel.input('language', 'zh_CN');
-    assert.equal(panel.element('swap-c-button').getAttribute('title'), '交换居中');
-    assert.equal(panel.element('swap-lc-button').getAttribute('title'), '交换左居中');
-    assert.equal(panel.element('swap-rc-button').getAttribute('title'), '交换右居中');
+    assert.equal(panel.element('swap-c-button').getAttribute('aria-label'), '交换居中');
+    assert.equal(panel.element('swap-lc-button').getAttribute('aria-label'), '交换左居中');
+    assert.equal(panel.element('swap-rc-button').getAttribute('aria-label'), '交换右居中');
     assert.deepEqual(panel.alerts, []);
   } finally {
     await panel.window.happyDOM.close();
@@ -231,8 +230,8 @@ async function chooseLayerColor(panel: Awaited<ReturnType<typeof createPanel>>, 
 test('pseudocolor tab has two independent layer-only groups and preserves configured channel colors', async () => {
   const panel = await createPanel('{"language":"zh_CN","pseudocolorMethod":"pixels","pseudocolorLut":"fire"}', true, undefined, configureLayerPanel);
   try {
-    assert.equal(panel.element('pseudocolor-group').querySelector('legend')?.textContent, '伪彩');
-    assert.equal(panel.element('merge-channels-group').querySelector('legend')?.textContent, '合并通道（Merge Channels）');
+    assert.equal(panel.element('pseudocolor-group').querySelector('legend')?.textContent, '伪彩?');
+    assert.equal(panel.element('merge-channels-group').querySelector('legend')?.textContent, '合并通道（Merge Channels）?');
     for (const id of ['pseudocolor-method', 'pseudocolor-mode', 'pseudocolor-resolution', 'pseudocolor-invert', 'pseudocolor-read-button'])
       assert.equal(panel.window.document.getElementById(id), null);
     assert.equal((panel.element('pseudocolor-keep') as any).checked, false);
@@ -1921,6 +1920,27 @@ test('standalone zoom window restores source units and edits represented length 
     assert.equal(editedEntry.placement, 'left');
     assert.equal(editedEntry.preservesLayout, false, 'Changing placement must release the saved layout');
     assert.equal(JSON.parse(panel.window.localStorage.getItem(storageKey)!).zoomAutoUpdate, false);
+  } finally {
+    await panel.window.happyDOM.close();
+  }
+});
+
+test('functional panels carry help badges with localized tutorials', async () => {
+  const panel = await createPanel();
+  try {
+    const badges = [
+      ...panel.window.document.querySelectorAll('.help-badge')
+    ] as HTMLElement[];
+    // relative 1 + distribute 4 + arrange 1 + swap 1 + size 1 + labels 1 +
+    // border 1 + pseudocolor 2 + zoom 1 + palettes 1 + pdf 2 + selection 4
+    // (scalebar adds 3 more once a selection renders)
+    assert.ok(badges.length >= 20, `expected >= 20 help badges, got ${badges.length}`);
+    assert.ok(badges[0].getAttribute('aria-label'));
+    await panel.input('language', 'zh_CN');
+    assert.ok(
+      badges[0].getAttribute('aria-label')!.includes('相对位置'),
+      'badge tutorial follows the language setting'
+    );
   } finally {
     await panel.window.happyDOM.close();
   }
