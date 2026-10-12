@@ -707,6 +707,14 @@ async function createPanel(
                 if (selection) data[operation] = JSON.stringify(selection);
                 if (JSON.parse(data[operation]).signature === args[0]) data[operation] = 'null';
               }
+              if (operation === 'cleanupPdfSelection' && args[0]) {
+                data.cleanupPdfSelection = JSON.stringify({
+                  removedBackgrounds: 1,
+                  removedPaths: 2,
+                  removedGroups: 0,
+                  removedWhiteTexts: 2
+                });
+              }
               return JSON.stringify({
                 ok: true,
                 data: data[operation] || 'Success'
@@ -1330,9 +1338,31 @@ test('PDF tools tab cleans selected PDFs and changes image ratios', async () => 
     await panel.flush();
     assert.deepEqual(panel.requests.at(-1), {
       operation: 'cleanupPdfSelection',
-      args: []
+      args: [false]
     });
     assert.match(panel.element('panel-pdf').textContent || '', /Removed 1/);
+    assert.doesNotMatch(
+      panel.element('panel-pdf').textContent || '',
+      /Removed \d+ white text/
+    );
+
+    // 勾选「删除白色文字」后再清理：请求携带 true，结果里出现白色文字数量
+    const removeWhiteText = panel.element('remove-white-text') as unknown as HTMLInputElement;
+    removeWhiteText.checked = true;
+    removeWhiteText.dispatchEvent(
+      new panel.window.Event('change', { bubbles: true })
+    );
+    await panel.flush();
+    await panel.click('cleanup-pdf-button');
+    await panel.flush();
+    assert.deepEqual(panel.requests.at(-1), {
+      operation: 'cleanupPdfSelection',
+      args: [true]
+    });
+    assert.match(
+      panel.element('panel-pdf').textContent || '',
+      /Removed 2 white text/
+    );
 
     await panel.input('image-ratio', '2');
     await panel.input('ratio-anchor', 'width');

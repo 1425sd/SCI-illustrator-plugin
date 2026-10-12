@@ -301,6 +301,7 @@ export interface PdfCleanupResult {
   removedPaths: number;
   removedGroups: number;
   backgroundSizes?: string[];
+  removedWhiteTexts?: number;
   changedFonts?: number;
   releasedMasks?: number;
   ungroupedGroups?: number;
@@ -328,7 +329,8 @@ export interface ImageRatioResult {
 }
 
 async function cleanupPdfSelection(): Promise<PdfCleanupResult> {
-  const result = await bridge.call('cleanupPdfSelection');
+  const w = get(workspace);
+  const result = await bridge.call('cleanupPdfSelection', w.removeWhiteText);
   try {
     return JSON.parse(result) as PdfCleanupResult;
   } catch (error) {

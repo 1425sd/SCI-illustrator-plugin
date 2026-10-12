@@ -69,6 +69,18 @@ function resizeable(
   return value;
 }
 
+function textFrame(
+  fillColor: any,
+  overrides: Record<string, unknown> = {}
+): any {
+  return {
+    typename: 'TextFrame',
+    textRange: { characterAttributes: { fillColor } },
+    tags: [],
+    ...overrides
+  };
+}
+
 function fixture(
   selection: any[],
   documents: any[] = [{}],
@@ -365,6 +377,45 @@ test('PDF cleanup removes a white rectangle exposed by a released mask', () => {
   assert.deepEqual(info.backgroundSizes, ['35.3 × 35.3 mm']);
   assert.equal(clipped.pageItems.includes(mask), false);
   assert.equal(clipped.pageItems.includes(artwork), true);
+});
+
+test('PDF cleanup removes white text only when the option is enabled', () => {
+  const white = textFrame({
+    typename: 'RGBColor',
+    red: 255,
+    green: 255,
+    blue: 255
+  });
+  const black = textFrame({
+    typename: 'RGBColor',
+    red: 0,
+    green: 0,
+    blue: 0
+  });
+  const nested = group([white]);
+  const artwork = path([-20, 120, 120, -20], {
+    stroked: true,
+    strokeWidth: 1
+  });
+  const root = group([nested, black, artwork]);
+  const { call } = fixture([root]);
+
+  const off = call('cleanupPdfSelection');
+  assert.equal(off.ok, true);
+  assert.equal(
+    JSON.parse((off as { data: string }).data).removedWhiteTexts,
+    undefined
+  );
+  assert.equal(nested.pageItems.includes(white), true);
+  assert.equal(root.pageItems.includes(black), true);
+
+  const on = call('cleanupPdfSelection', [true]);
+  assert.equal(on.ok, true);
+  const info = JSON.parse((on as { data: string }).data);
+  assert.equal(info.removedWhiteTexts, 1);
+  assert.equal(nested.pageItems.includes(white), false);
+  assert.equal(root.pageItems.includes(black), true);
+  assert.equal(root.pageItems.includes(artwork), true);
 });
 
 test('menu commands are skipped when the selection cannot be set', () => {

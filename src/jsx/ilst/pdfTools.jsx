@@ -516,6 +516,8 @@ function pdfRemoveCandidates(candidates, outcome, roots) {
       outcome.removedBackgrounds++;
       if (size && outcome.sizes.length < PDF_BACKGROUND_SIZE_LIMIT)
         outcome.sizes.push(size);
+    } else if (candidate.kind === 'whiteText') {
+      outcome.removedWhiteTexts++;
     } else {
       outcome.removedPaths++;
     }
@@ -651,6 +653,28 @@ function pdfRemoveEmptyGroups(groups, stats) {
   }
 }
 
+// 白色文字：白色底上的白色文字通常是 PDF 导入残留的占位/隐藏文本，但也
+// 可能是深色底上有意义的标签，因此只在用户勾选时才收集删除。
+function pdfIsWhiteTextFrame(item) {
+  try {
+    if (item.typename !== 'TextFrame') return false;
+    return pdfIsWhiteColor(item.textRange.characterAttributes.fillColor);
+  } catch (e) {
+    return false;
+  }
+}
+
+function pdfCollectWhiteTextFrames(item, candidates) {
+  if (!item) return;
+  if (pdfIsWhiteTextFrame(item)) {
+    candidates.push({ item: item, kind: 'whiteText', depth: 1 });
+    return;
+  }
+  var children = pdfChildrenArray(item);
+  for (var i = 0; i < children.length; i++)
+    pdfCollectWhiteTextFrames(children[i], candidates);
+}
+
 function pdfRestoreSelection(doc, selection, fallback) {
   var restored = [];
   for (var i = 0; i < selection.length; i++) {
@@ -666,7 +690,7 @@ function pdfRestoreSelection(doc, selection, fallback) {
   } catch (e) {}
 }
 
-function cleanupPdfSelection() {
+function cleanupPdfSelection(removeWhiteText) {
   if (app.documents.length === 0) return sciError('errors.noDocument');
   var doc = app.activeDocument;
   var selection = doc.selection;
@@ -682,6 +706,8 @@ function cleanupPdfSelection() {
     saved.push(selection[i]);
     pdfCollectItems(selection[i], allItems);
     pdfCollectGroups(selection[i], operationGroups, 0);
+    if (removeWhiteText)
+      pdfCollectWhiteTextFrames(selection[i], candidates);
   }
   try {
     for (var r = 0; r < saved.length; r++) {
@@ -702,6 +728,7 @@ function cleanupPdfSelection() {
       removedBackgrounds: 0,
       removedPaths: 0,
       removedGroups: 0,
+      removedWhiteTexts: 0,
       sizes: []
     },
     stats = {
@@ -751,6 +778,8 @@ function cleanupPdfSelection() {
     removedGroups: outcome.removedGroups
   };
   if (outcome.sizes.length) result.backgroundSizes = outcome.sizes;
+  if (outcome.removedWhiteTexts)
+    result.removedWhiteTexts = outcome.removedWhiteTexts;
   if (stats.changedFonts) result.changedFonts = stats.changedFonts;
   if (stats.releasedMasks) result.releasedMasks = stats.releasedMasks;
   if (stats.ungroupedGroups) result.ungroupedGroups = stats.ungroupedGroups;

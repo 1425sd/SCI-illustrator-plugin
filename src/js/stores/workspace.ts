@@ -40,6 +40,7 @@ export interface Workspace {
   labelEditing: boolean;
   imageRatio: number;
   ratioAnchor: RatioAnchor;
+  removeWhiteText: boolean;
 }
 
 export const workspace = writable<Workspace>({
@@ -80,7 +81,8 @@ export const workspace = writable<Workspace>({
   labelSession: null,
   labelEditing: false,
   imageRatio: 1.5,
-  ratioAnchor: 'height'
+  ratioAnchor: 'height',
+  removeWhiteText: false
 });
 
 export function labelPreview(template: string, start: number): string {

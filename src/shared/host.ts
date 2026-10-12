@@ -89,7 +89,7 @@ export interface HostArguments {
   cancelPseudocolorLayerTargets: [string];
   applyPseudocolorLayers: [string];
   applyPaletteFill: [string];
-  cleanupPdfSelection: [];
+  cleanupPdfSelection: [boolean];
   changeSelectedTextSize: [string, number];
   changeImageRatio: [number, RatioAnchor];
   splitTextFrames: [];

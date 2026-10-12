@@ -41,6 +41,17 @@
   <fieldset>
     <legend>{$t('pdf.cleanupTitle')}<HelpBadge key="help.pdf.cleanup" /></legend>
     <p class="panel-description">{$t('pdf.cleanupDescription')}</p>
+    <div class="grid">
+      <div class="input-group">
+        <label for="remove-white-text">{$t('pdf.removeWhiteText')}</label>
+        <input
+          type="checkbox"
+          id="remove-white-text"
+          use:tooltip={$t('pdf.removeWhiteTextHint')}
+          bind:checked={$workspace.removeWhiteText}
+        />
+      </div>
+    </div>
     <div class="toolbar">
       <button
         class="btn btn-primary"
@@ -68,6 +79,13 @@
       {#if backgroundSizeSummary}
         <div class="status status-details" role="status">
           {$t('pdf.cleanupBackgroundSizes', [backgroundSizeSummary])}
+        </div>
+      {/if}
+      {#if cleanupResult.removedWhiteTexts !== undefined}
+        <div class="status status-details" role="status">
+          {$t('pdf.cleanupWhiteTexts', [
+            String(cleanupResult.removedWhiteTexts)
+          ])}
         </div>
       {/if}
       {#if cleanupResult.warning}
