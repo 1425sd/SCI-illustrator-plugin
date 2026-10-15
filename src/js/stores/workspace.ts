@@ -41,6 +41,7 @@ export interface Workspace {
   imageRatio: number;
   ratioAnchor: RatioAnchor;
   removeWhiteText: boolean;
+  removeWhitePaths: boolean;
   selectionFilterInvert: boolean;
 }
 
@@ -84,6 +85,7 @@ export const workspace = writable<Workspace>({
   imageRatio: 1.5,
   ratioAnchor: 'height',
   removeWhiteText: false,
+  removeWhitePaths: true,
   selectionFilterInvert: false
 });
 

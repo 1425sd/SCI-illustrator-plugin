@@ -418,6 +418,38 @@ test('PDF cleanup removes white text only when the option is enabled', () => {
   assert.equal(root.pageItems.includes(artwork), true);
 });
 
+test('unchecking white-path removal keeps white paths but still removes empty paths', () => {
+  const background = path([0, 100, 100, 0], {
+    filled: true,
+    fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 }
+  });
+  const empty = path([10, 90, 20, 80]);
+  const root = group([background, empty]);
+  const { call } = fixture([root]);
+
+  // [removeWhiteText, removeWhitePaths]
+  const result = call('cleanupPdfSelection', [false, false]);
+  assert.equal(result.ok, true);
+  const info = JSON.parse((result as { data: string }).data);
+  assert.equal(info.removedBackgrounds, 0);
+  assert.equal(info.removedPaths, 1);
+  assert.equal(root.pageItems.includes(background), true);
+  assert.equal(root.pageItems.includes(empty), false);
+
+  // 默认（不传参）仍删除白色路径，与旧版行为一致
+  const background2 = path([0, 100, 100, 0], {
+    filled: true,
+    fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 }
+  });
+  const root2 = group([background2]);
+  const second = fixture([root2]);
+  const again = second.call('cleanupPdfSelection');
+  assert.equal(again.ok, true);
+  const info2 = JSON.parse((again as { data: string }).data);
+  assert.equal(info2.removedBackgrounds, 1);
+  assert.equal(root2.pageItems.includes(background2), false);
+});
+
 test('menu commands are skipped when the selection cannot be set', () => {
   const artwork = path([0, 100, 100, 0], { stroked: true, strokeWidth: 1 });
   const mask = path([0, 100, 100, 0], { clipping: true });

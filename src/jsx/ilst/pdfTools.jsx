@@ -528,15 +528,23 @@ function pdfRemoveCandidates(candidates, outcome, roots) {
 // a released white clipping rectangle first and foremost.  Re-run the same
 // conservative background rules over the surviving roots and drop what they
 // now flag, so the cleanup leaves no newly exposed white rectangles behind.
-function pdfSecondPassBackgrounds(roots, outcome) {
+function pdfSecondPassBackgrounds(roots, outcome, removeWhitePaths) {
   var candidates = [],
     groups = [];
   for (var r = 0; r < roots.length; r++) {
     var root = roots[r];
     if (!pdfStillInDocument(root)) continue;
     try {
-      pdfVisitCleanup(root, pdfBounds(root), true, 0, candidates, groups);
-      pdfCollectZTailBackgrounds(root, candidates);
+      pdfVisitCleanup(
+        root,
+        pdfBounds(root),
+        true,
+        0,
+        candidates,
+        groups,
+        removeWhitePaths
+      );
+      if (removeWhitePaths) pdfCollectZTailBackgrounds(root, candidates);
     } catch (visitError) {
       continue;
     }
@@ -582,11 +590,11 @@ function pdfPathIsEmpty(item) {
   return false;
 }
 
-function pdfVisitCleanup(item, rootBounds, isRoot, depth, candidates, groups) {
+function pdfVisitCleanup(item, rootBounds, isRoot, depth, candidates, groups, removeWhitePaths) {
   if (!item || pdfHasSciTag(item)) return;
   var children = pdfChildrenArray(item);
   for (var i = 0; i < children.length; i++)
-    pdfVisitCleanup(children[i], rootBounds, false, depth + 1, candidates, groups);
+    pdfVisitCleanup(children[i], rootBounds, false, depth + 1, candidates, groups, removeWhitePaths);
   if (isRoot || pdfIsProtected(item)) return;
   var type = '';
   try {
@@ -596,7 +604,11 @@ function pdfVisitCleanup(item, rootBounds, isRoot, depth, candidates, groups) {
   }
   if (type === 'PathItem' || type === 'CompoundPathItem') {
     var kind = '';
-    if (pdfIsBackground(item, rootBounds) || pdfIsWhiteFillPath(item))
+    // 白色背景路径受勾选控制；无描边无填充的空路径始终视为垃圾。
+    if (
+      removeWhitePaths &&
+      (pdfIsBackground(item, rootBounds) || pdfIsWhiteFillPath(item))
+    )
       kind = 'background';
     else if (pdfPathIsEmpty(item)) kind = 'path';
     if (kind)
@@ -690,12 +702,15 @@ function pdfRestoreSelection(doc, selection, fallback) {
   } catch (e) {}
 }
 
-function cleanupPdfSelection(removeWhiteText) {
+function cleanupPdfSelection(removeWhiteText, removeWhitePaths) {
   if (app.documents.length === 0) return sciError('errors.noDocument');
   var doc = app.activeDocument;
   var selection = doc.selection;
   if (!selection || selection.length === 0)
     return sciError('errors.pdfCleanupSelection');
+
+  // 白色路径默认删除（与旧版一致），仅勾选框明确取消时保留。
+  var removeWhitePathsFlag = removeWhitePaths !== false;
 
   var saved = [],
     allItems = [],
@@ -713,8 +728,17 @@ function cleanupPdfSelection(removeWhiteText) {
     for (var r = 0; r < saved.length; r++) {
       var rootBounds = pdfBounds(saved[r]);
       if (!rootBounds) return sciError('errors.pdfCleanupSelection');
-      pdfVisitCleanup(saved[r], rootBounds, true, 0, candidates, groups);
-      pdfCollectZTailBackgrounds(saved[r], candidates);
+      pdfVisitCleanup(
+        saved[r],
+        rootBounds,
+        true,
+        0,
+        candidates,
+        groups,
+        removeWhitePathsFlag
+      );
+      if (removeWhitePathsFlag)
+        pdfCollectZTailBackgrounds(saved[r], candidates);
     }
   } catch (preflightError) {
     pdfRestoreSelection(doc, saved, allItems);
@@ -767,7 +791,7 @@ function cleanupPdfSelection(removeWhiteText) {
     pdfRemoveEmptyGroups(groups, postStats);
     outcome.removedPaths += postStats.removedPaths;
     outcome.removedGroups += postStats.removedGroups;
-    pdfSecondPassBackgrounds(saved, outcome);
+    pdfSecondPassBackgrounds(saved, outcome, removeWhitePathsFlag);
   } catch (finalError) {
     warnings.push(String((finalError && finalError.message) || finalError));
   }

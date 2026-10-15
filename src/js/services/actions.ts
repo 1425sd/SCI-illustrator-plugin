@@ -330,7 +330,11 @@ export interface ImageRatioResult {
 
 async function cleanupPdfSelection(): Promise<PdfCleanupResult> {
   const w = get(workspace);
-  const result = await bridge.call('cleanupPdfSelection', w.removeWhiteText);
+  const result = await bridge.call(
+    'cleanupPdfSelection',
+    w.removeWhiteText,
+    w.removeWhitePaths
+  );
   try {
     return JSON.parse(result) as PdfCleanupResult;
   } catch (error) {

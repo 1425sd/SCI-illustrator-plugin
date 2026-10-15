@@ -1338,7 +1338,7 @@ test('PDF tools tab cleans selected PDFs and changes image ratios', async () => 
     await panel.flush();
     assert.deepEqual(panel.requests.at(-1), {
       operation: 'cleanupPdfSelection',
-      args: [false]
+      args: [false, true]
     });
     assert.match(panel.element('panel-pdf').textContent || '', /Removed 1/);
     assert.doesNotMatch(
@@ -1357,12 +1357,29 @@ test('PDF tools tab cleans selected PDFs and changes image ratios', async () => 
     await panel.flush();
     assert.deepEqual(panel.requests.at(-1), {
       operation: 'cleanupPdfSelection',
-      args: [true]
+      args: [true, true]
     });
     assert.match(
       panel.element('panel-pdf').textContent || '',
       /Removed 2 white text/
     );
+
+    // 「删除白色路径」默认勾选；取消后清理请求携带 false
+    const removeWhitePaths = panel.element(
+      'remove-white-paths'
+    ) as unknown as HTMLInputElement;
+    assert.equal(removeWhitePaths.checked, true);
+    removeWhitePaths.checked = false;
+    removeWhitePaths.dispatchEvent(
+      new panel.window.Event('change', { bubbles: true })
+    );
+    await panel.flush();
+    await panel.click('cleanup-pdf-button');
+    await panel.flush();
+    assert.deepEqual(panel.requests.at(-1), {
+      operation: 'cleanupPdfSelection',
+      args: [true, false]
+    });
 
     await panel.input('image-ratio', '2');
     await panel.input('ratio-anchor', 'width');

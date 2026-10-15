@@ -51,6 +51,15 @@
           bind:checked={$workspace.removeWhiteText}
         />
       </div>
+      <div class="input-group">
+        <label for="remove-white-paths">{$t('pdf.removeWhitePaths')}</label>
+        <input
+          type="checkbox"
+          id="remove-white-paths"
+          use:tooltip={$t('pdf.removeWhitePathsHint')}
+          bind:checked={$workspace.removeWhitePaths}
+        />
+      </div>
     </div>
     <div class="toolbar">
       <button
