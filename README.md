@@ -159,11 +159,11 @@
 
 ### 下载 zip 或 zxp 文件
 
-**下载地址**(来自原仓库分享):
+**下载地址**:
 
-- 原仓库 Releases:[https://github.com/Achuan-2/illustrator_sci_toolbox/releases](https://github.com/Achuan-2/illustrator_sci_toolbox/releases)
-- 百度网盘:[https://pan.baidu.com/s/1zRVdx0TtWFCZi0rwfZkUBw?pwd=ftit](https://pan.baidu.com/s/1zRVdx0TtWFCZi0rwfZkUBw?pwd=ftit)
-- 夸克网盘:[https://pan.quark.cn/s/12bf0d38de47](https://pan.quark.cn/s/12bf0d38de47)
+- 本仓库 Releases:[https://github.com/1425sd/SCI-illustrator-plugin/releases](https://github.com/1425sd/SCI-illustrator-plugin/releases)(v2.11.0 起提供 ZXP / ZIP 安装包下载)
+- 原仓库 Releases(历史版本):[https://github.com/Achuan-2/illustrator_sci_toolbox/releases](https://github.com/Achuan-2/illustrator_sci_toolbox/releases)
+- 网盘下载(原仓库分享):[百度网盘](https://pan.baidu.com/s/1zRVdx0TtWFCZi0rwfZkUBw?pwd=ftit) / [夸克网盘](https://pan.quark.cn/s/12bf0d38de47)
 
 ### 安装方法
 
