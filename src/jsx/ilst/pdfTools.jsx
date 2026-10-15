@@ -595,13 +595,16 @@ function pdfVisitCleanup(item, rootBounds, isRoot, depth, candidates, groups, re
   var children = pdfChildrenArray(item);
   for (var i = 0; i < children.length; i++)
     pdfVisitCleanup(children[i], rootBounds, false, depth + 1, candidates, groups, removeWhitePaths);
-  if (isRoot || pdfIsProtected(item)) return;
   var type = '';
   try {
     type = item.typename;
   } catch (e) {
     return;
   }
+  // 根组是包裹容器，删掉它等于清空整个选区，保持整体保留；但直接选中的
+  // 裸路径不是容器——普通选区选的往往就是白色背景或空路径本身，同样判定。
+  if (isRoot && type !== 'PathItem' && type !== 'CompoundPathItem') return;
+  if (pdfIsProtected(item)) return;
   if (type === 'PathItem' || type === 'CompoundPathItem') {
     var kind = '';
     // 白色背景路径受勾选控制；无描边无填充的空路径始终视为垃圾。

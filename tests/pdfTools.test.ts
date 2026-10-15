@@ -290,6 +290,71 @@ test('PDF cleanup removes white fills at any stacking position', () => {
   assert.equal(root.pageItems.length, 10);
 });
 
+test('PDF cleanup judges loose top-level paths in a normal selection', () => {
+  const white = path([0, 100, 100, 0], {
+    filled: true,
+    fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 }
+  });
+  const empty = path([10, 90, 20, 80]);
+  const artwork = path([20, 80, 80, 20], {
+    stroked: true,
+    strokeWidth: 1
+  });
+  const { document, call } = fixture([white, empty, artwork]);
+  for (const item of [white, empty, artwork]) {
+    item.remove = () => {
+      const index = document.pageItems.indexOf(item);
+      if (index >= 0) document.pageItems.splice(index, 1);
+      item.parent = null;
+    };
+  }
+
+  const result = call('cleanupPdfSelection');
+  assert.equal(result.ok, true);
+  const info = JSON.parse((result as { data: string }).data);
+  assert.equal(info.removedBackgrounds, 1);
+  assert.equal(info.removedPaths, 1);
+  assert.deepEqual(info.backgroundSizes, ['35.3 × 35.3 mm']);
+  assert.equal(document.pageItems.includes(white), false);
+  assert.equal(document.pageItems.includes(empty), false);
+  assert.equal(document.pageItems.includes(artwork), true);
+});
+
+test('unchecking white-path removal keeps a loose white path selected directly', () => {
+  const white = path([0, 100, 100, 0], {
+    filled: true,
+    fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 }
+  });
+  const { document, call } = fixture([white]);
+  white.remove = () => {
+    const index = document.pageItems.indexOf(white);
+    if (index >= 0) document.pageItems.splice(index, 1);
+    white.parent = null;
+  };
+
+  const result = call('cleanupPdfSelection', [false, false]);
+  assert.equal(result.ok, true);
+  const info = JSON.parse((result as { data: string }).data);
+  assert.equal(info.removedBackgrounds, 0);
+  assert.equal(document.pageItems.includes(white), true);
+});
+
+test('a loose outlined white shape such as a box-plot box survives cleanup', () => {
+  const box = path([0, 100, 100, 0], {
+    filled: true,
+    fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 },
+    stroked: true,
+    strokeWidth: 1
+  });
+  const { document, call } = fixture([box]);
+
+  const result = call('cleanupPdfSelection');
+  assert.equal(result.ok, true);
+  const info = JSON.parse((result as { data: string }).data);
+  assert.equal(info.removedBackgrounds, 0);
+  assert.equal(document.pageItems.includes(box), true);
+});
+
 test('PDF cleanup skips artwork under a locked ancestor instead of failing', () => {
   const lockedWhite = path([0, 100, 100, 0], {
     filled: true,
