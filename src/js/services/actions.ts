@@ -436,7 +436,7 @@ export const actions = {
   changeSelectedLineWidth: () => run(changeSelectedLineWidth),
   filterSelection: (mode: 'textOnly' | 'pathsOnly' | 'shapesOnly') =>
     run(async () => {
-      await bridge.call('filterSelection', mode);
+      await bridge.call('filterSelection', mode, get(workspace).selectionFilterInvert);
     }),
   swap: (anchor: SwapAnchor) =>
     run(async () => {

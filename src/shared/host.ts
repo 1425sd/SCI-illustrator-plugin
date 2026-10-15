@@ -72,7 +72,7 @@ export interface HostArguments {
   updateLabelOffsets: [number, number, number];
   updateLabelSessionIndex: [number, number];
   filterTextFrames: [];
-  filterSelection: ['textOnly' | 'pathsOnly' | 'shapesOnly'];
+  filterSelection: ['textOnly' | 'pathsOnly' | 'shapesOnly', boolean];
   swapSelectedPositions: [SwapAnchor];
   distributeSpacing: [Direction];
   alignObjects: [AlignmentMode];

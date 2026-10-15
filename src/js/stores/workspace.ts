@@ -41,6 +41,7 @@ export interface Workspace {
   imageRatio: number;
   ratioAnchor: RatioAnchor;
   removeWhiteText: boolean;
+  selectionFilterInvert: boolean;
 }
 
 export const workspace = writable<Workspace>({
@@ -82,7 +83,8 @@ export const workspace = writable<Workspace>({
   labelEditing: false,
   imageRatio: 1.5,
   ratioAnchor: 'height',
-  removeWhiteText: false
+  removeWhiteText: false,
+  selectionFilterInvert: false
 });
 
 export function labelPreview(template: string, start: number): string {

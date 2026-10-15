@@ -1130,7 +1130,7 @@ function filterItemIsOpenPath(item) {
     }
 }
 
-function filterSelection(type) {
+function filterSelection(type, invert) {
     if (app.documents.length === 0) return sciError("errors.noDocument");
 
     var doc = app.activeDocument;
@@ -1162,15 +1162,20 @@ function filterSelection(type) {
     else if (type === "shapesOnly") matcher = filterItemIsClosedShape;
     else return sciError("errors.unknownFilter");
 
+    // 反向勾选后改为选中不匹配该类型的对象。
+    var invertFlag = invert === true;
+
     var matched = [];
     for (var j = 0; j < items.length; j++) {
-        if (matcher(items[j])) matched.push(items[j]);
+        if (matcher(items[j]) !== invertFlag) matched.push(items[j]);
     }
 
     if (matched.length === 0) {
-        if (type === "textOnly") return sciError("errors.noTextFrames");
-        if (type === "pathsOnly") return sciError("errors.noPaths");
-        return sciError("errors.noShapes");
+        if (type === "textOnly")
+            return sciError(invertFlag ? "errors.noNonTextFrames" : "errors.noTextFrames");
+        if (type === "pathsOnly")
+            return sciError(invertFlag ? "errors.noNonPaths" : "errors.noPaths");
+        return sciError(invertFlag ? "errors.noNonShapes" : "errors.noShapes");
     }
 
     doc.selection = null;

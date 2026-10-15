@@ -1,5 +1,6 @@
 <script lang="ts">
   import { settings } from '../stores/settings';
+  import { workspace } from '../stores/workspace';
   import { t } from '../i18n';
   import {
     actions,
@@ -53,6 +54,16 @@
       onclick={() => actions.filterSelection('shapesOnly')}
       >{$t('selection.shapesOnly')}</button
     >
+  </div>
+
+  <div class="input-group filter-invert-row">
+    <label for="filter-invert">{$t('selection.filterInvert')}</label>
+    <input
+      type="checkbox"
+      id="filter-invert"
+      use:tooltip={$t('selection.filterInvertHint')}
+      bind:checked={$workspace.selectionFilterInvert}
+    />
   </div>
 
   <h3>{$t('selection.textTools')}<HelpBadge key="help.selection.textTools" /></h3>
@@ -131,6 +142,10 @@
 </div>
 
 <style>
+  .filter-invert-row {
+    margin-top: 8px;
+  }
+
   .status {
     margin-top: 10px;
     color: var(--muted);
