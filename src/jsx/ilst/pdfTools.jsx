@@ -342,6 +342,53 @@ function pdfIsWhiteColor(color) {
   return false;
 }
 
+// PDF 导入的白色矩形常带 0 宽描边残留：宽度 ≤0.05pt 的描边在画面和
+// 印刷上均不可见，视同无描边，否则会被"带轮廓白形状"规则误保留。
+function pdfStrokeInvisible(item) {
+  try {
+    if (!item.stroked) return true;
+    var width = Number(item.strokeWidth);
+    return isFinite(width) && width <= 0.05;
+  } catch (e) {
+    return false;
+  }
+}
+
+// 结果反馈用：白色填充、未被判为背景删除的形状（带可见描边或半透明）
+// 会被统计并汇报，让用户知道这些白形状为什么留下了。
+function pdfHasWhiteFill(item) {
+  try {
+    if (!item.filled) return false;
+    var color = item.fillColor;
+    if (
+      !color ||
+      color.typename === 'GradientColor' ||
+      color.typename === 'PatternColor'
+    )
+      return false;
+    return pdfIsWhiteColor(color);
+  } catch (e) {
+    return false;
+  }
+}
+
+function pdfIsKeptWhiteShape(item) {
+  try {
+    if (item.clipping) return false;
+    if (item.typename === 'PathItem') return pdfHasWhiteFill(item);
+    if (item.typename === 'CompoundPathItem') {
+      if (!item.pathItems || !item.pathItems.length) return false;
+      for (var i = 0; i < item.pathItems.length; i++) {
+        var sub = item.pathItems[i];
+        if (sub.clipping) return false;
+        if (!pdfHasWhiteFill(sub)) return false;
+      }
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
 function pdfIsOpaque(item) {
   try {
     if (typeof item.opacity === 'number' && item.opacity < 99.5) return false;
@@ -351,7 +398,7 @@ function pdfIsOpaque(item) {
 
 function pdfIsSolidFilled(item) {
   try {
-    if (!item.filled || item.stroked) return false;
+    if (!item.filled || !pdfStrokeInvisible(item)) return false;
     if (!pdfIsOpaque(item)) return false;
     var color = item.fillColor;
     if (
@@ -393,6 +440,25 @@ function pdfMatchesBackgroundBounds(item, rootBounds) {
   }
 }
 
+// Some PDF exporters draw a panel frame as an unfilled white rectangle with
+// a visible white stroke. It is a background border, but it is not caught by
+// the white-fill rule because the stroke is intentionally visible. Restrict
+// this exception to closed, unfilled white rectangles whose bounds match the
+// selected panel (or a multi-item local wrapper), so outlined white marks such
+// as box-plot boxes remain intact.
+function pdfIsWhiteStrokeBackground(item, rootBounds) {
+  try {
+    if (item.typename !== 'PathItem') return false;
+    if (item.clipping || item.filled || !item.stroked) return false;
+    if (!item.closed || !item.pathPoints || item.pathPoints.length !== 4)
+      return false;
+    if (!pdfIsWhiteColor(item.strokeColor) || !pdfIsOpaque(item)) return false;
+    return pdfMatchesBackgroundBounds(item, rootBounds);
+  } catch (e) {
+    return false;
+  }
+}
+
 function pdfCompoundIsBackground(item) {
   try {
     if (!item.pathItems || !item.pathItems.length) return false;
@@ -423,7 +489,7 @@ function pdfIsBackground(item, rootBounds) {
       : pdfCompoundIsBackground(item);
   if (!solid && !pdfHasBackgroundName(item)) return false;
   try {
-    if (item.stroked) return false;
+    if (!pdfStrokeInvisible(item)) return false;
   } catch (e2) {}
   return true;
 }
@@ -443,7 +509,7 @@ function pdfCollectZTailBackgrounds(root, candidates) {
     if (pdfIsProtected(item)) continue;
     var solid = false;
     try {
-      if (item.stroked) continue;
+      if (!pdfStrokeInvisible(item)) continue;
       if (item.typename === 'PathItem') solid = pdfIsSolidFilled(item);
       else if (item.typename === 'CompoundPathItem')
         solid = pdfCompoundIsBackground(item);
@@ -528,7 +594,7 @@ function pdfRemoveCandidates(candidates, outcome, roots) {
 // a released white clipping rectangle first and foremost.  Re-run the same
 // conservative background rules over the surviving roots and drop what they
 // now flag, so the cleanup leaves no newly exposed white rectangles behind.
-function pdfSecondPassBackgrounds(roots, outcome, removeWhitePaths) {
+function pdfSecondPassBackgrounds(roots, outcome, removeWhitePaths, kept) {
   var candidates = [],
     groups = [];
   for (var r = 0; r < roots.length; r++) {
@@ -542,7 +608,8 @@ function pdfSecondPassBackgrounds(roots, outcome, removeWhitePaths) {
         0,
         candidates,
         groups,
-        removeWhitePaths
+        removeWhitePaths,
+        kept
       );
       if (removeWhitePaths) pdfCollectZTailBackgrounds(root, candidates);
     } catch (visitError) {
@@ -560,7 +627,7 @@ function pdfSecondPassBackgrounds(roots, outcome, removeWhitePaths) {
 // like) always carry an outline, so requiring "no stroke" keeps them safe.
 function pdfIsWhiteFillPath(item) {
   try {
-    if (item.stroked) return false;
+    if (!pdfStrokeInvisible(item)) return false;
     if (item.typename === 'PathItem') return pdfIsSolidFilled(item);
     if (item.typename === 'CompoundPathItem')
       return pdfCompoundIsBackground(item);
@@ -575,14 +642,14 @@ function pdfPathIsEmpty(item) {
       // A stroked horizontal or vertical line can have zero geometric width
       // or height while still being visible.  Paint state is the reliable
       // distinction between an unused path and visible artwork.
-      return !item.filled && !item.stroked;
+      return !item.filled && pdfStrokeInvisible(item);
     }
     if (item.typename === 'CompoundPathItem') {
       if (!item.pathItems || item.pathItems.length === 0) return true;
       for (var i = 0; i < item.pathItems.length; i++) {
         var child = item.pathItems[i];
         if (child.clipping) return false;
-        if (child.filled || child.stroked) return false;
+        if (child.filled || !pdfStrokeInvisible(child)) return false;
       }
       return true;
     }
@@ -590,11 +657,11 @@ function pdfPathIsEmpty(item) {
   return false;
 }
 
-function pdfVisitCleanup(item, rootBounds, isRoot, depth, candidates, groups, removeWhitePaths) {
+function pdfVisitCleanup(item, rootBounds, isRoot, depth, candidates, groups, removeWhitePaths, kept) {
   if (!item || pdfHasSciTag(item)) return;
   var children = pdfChildrenArray(item);
   for (var i = 0; i < children.length; i++)
-    pdfVisitCleanup(children[i], rootBounds, false, depth + 1, candidates, groups, removeWhitePaths);
+    pdfVisitCleanup(children[i], rootBounds, false, depth + 1, candidates, groups, removeWhitePaths, kept);
   var type = '';
   try {
     type = item.typename;
@@ -610,12 +677,15 @@ function pdfVisitCleanup(item, rootBounds, isRoot, depth, candidates, groups, re
     // 白色背景路径受勾选控制；无描边无填充的空路径始终视为垃圾。
     if (
       removeWhitePaths &&
-      (pdfIsBackground(item, rootBounds) || pdfIsWhiteFillPath(item))
+      (pdfIsBackground(item, rootBounds) ||
+        pdfIsWhiteFillPath(item) ||
+        pdfIsWhiteStrokeBackground(item, rootBounds))
     )
       kind = 'background';
     else if (pdfPathIsEmpty(item)) kind = 'path';
-    if (kind)
-      candidates.push({ item: item, kind: kind, depth: depth });
+    if (kind) candidates.push({ item: item, kind: kind, depth: depth });
+    else if (removeWhitePaths && kept && pdfIsKeptWhiteShape(item))
+      pdfPushUnique(kept, item);
   } else if (type === 'GroupItem') {
     groups.push({ item: item, depth: depth });
   }
@@ -719,7 +789,8 @@ function cleanupPdfSelection(removeWhiteText, removeWhitePaths) {
     allItems = [],
     operationGroups = [],
     candidates = [],
-    groups = [];
+    groups = [],
+    keptWhites = [];
   for (var i = 0; i < selection.length; i++) {
     saved.push(selection[i]);
     pdfCollectItems(selection[i], allItems);
@@ -738,7 +809,8 @@ function cleanupPdfSelection(removeWhiteText, removeWhitePaths) {
         0,
         candidates,
         groups,
-        removeWhitePathsFlag
+        removeWhitePathsFlag,
+        keptWhites
       );
       if (removeWhitePathsFlag)
         pdfCollectZTailBackgrounds(saved[r], candidates);
@@ -794,7 +866,7 @@ function cleanupPdfSelection(removeWhiteText, removeWhitePaths) {
     pdfRemoveEmptyGroups(groups, postStats);
     outcome.removedPaths += postStats.removedPaths;
     outcome.removedGroups += postStats.removedGroups;
-    pdfSecondPassBackgrounds(saved, outcome, removeWhitePathsFlag);
+    pdfSecondPassBackgrounds(saved, outcome, removeWhitePathsFlag, keptWhites);
   } catch (finalError) {
     warnings.push(String((finalError && finalError.message) || finalError));
   }
@@ -807,6 +879,7 @@ function cleanupPdfSelection(removeWhiteText, removeWhitePaths) {
   if (outcome.sizes.length) result.backgroundSizes = outcome.sizes;
   if (outcome.removedWhiteTexts)
     result.removedWhiteTexts = outcome.removedWhiteTexts;
+  if (keptWhites.length) result.keptWhiteShapes = keptWhites.length;
   if (stats.changedFonts) result.changedFonts = stats.changedFonts;
   if (stats.releasedMasks) result.releasedMasks = stats.releasedMasks;
   if (stats.ungroupedGroups) result.ungroupedGroups = stats.ungroupedGroups;

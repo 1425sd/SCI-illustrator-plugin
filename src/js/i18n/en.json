@@ -280,6 +280,7 @@
   "pdf.removeWhitePaths": "Remove white paths:",
   "pdf.removeWhitePathsHint": "When checked, cleanup deletes unstroked white-filled paths (white backgrounds) at any nesting level (checked by default); uncheck to keep white paths — unpainted empty paths are still removed.",
   "pdf.cleanupWhiteTexts": "Removed {0} white text object(s).",
+  "pdf.cleanupKeptWhites": "Kept {0} white shape(s) (visible outline or semi-transparent — kept by design; remove the outline first if they are backgrounds).",
   "pdf.cleanupWarning": "Some objects were skipped after errors: {0}",
   "pdf.cleanupScope": "Scope: {0} top-level object(s), {1} item(s) in total. If this is larger than expected (a whole-page PDF import is one group — one click selects all of it), ungroup first or use isolation mode to select precisely.",
   "pdf.ratioTitle": "Image Aspect Ratio",

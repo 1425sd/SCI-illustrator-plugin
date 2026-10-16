@@ -97,6 +97,13 @@
           ])}
         </div>
       {/if}
+      {#if cleanupResult.keptWhiteShapes}
+        <div class="status status-details" role="status">
+          {$t('pdf.cleanupKeptWhites', [
+            String(cleanupResult.keptWhiteShapes)
+          ])}
+        </div>
+      {/if}
       {#if cleanupResult.warning}
         <div class="status status-warning" role="status">
           {$t('pdf.cleanupWarning', [cleanupResult.warning])}

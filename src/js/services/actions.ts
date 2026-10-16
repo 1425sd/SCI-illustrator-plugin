@@ -302,6 +302,7 @@ export interface PdfCleanupResult {
   removedGroups: number;
   backgroundSizes?: string[];
   removedWhiteTexts?: number;
+  keptWhiteShapes?: number;
   changedFonts?: number;
   releasedMasks?: number;
   ungroupedGroups?: number;

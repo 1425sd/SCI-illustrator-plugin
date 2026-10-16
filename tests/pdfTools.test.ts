@@ -238,11 +238,35 @@ test('PDF cleanup keeps outlined white shapes such as box-plot boxes', () => {
       removedBackgrounds: 0,
       removedPaths: 0,
       removedGroups: 0,
+      keptWhiteShapes: 1,
       selectionRoots: 1,
       scopeItems: 2
     })
   });
   assert.equal(root.pageItems.includes(outlinedBox), true);
+});
+
+test('PDF cleanup removes an unfilled white frame matching the panel bounds', () => {
+  const frame = path([0, 100, 100, 0], {
+    closed: true,
+    stroked: true,
+    strokeWidth: 1,
+    strokeColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 }
+  });
+  const artwork = path([10, 90, 90, 10], {
+    stroked: true,
+    strokeWidth: 1,
+    strokeColor: { typename: 'RGBColor', red: 0, green: 0, blue: 0 }
+  });
+  const root = group([artwork, frame]);
+  const { call } = fixture([root]);
+
+  const result = call('cleanupPdfSelection');
+  assert.equal(result.ok, true);
+  const info = JSON.parse((result as { data: string }).data);
+  assert.equal(info.removedBackgrounds, 1);
+  assert.equal(root.pageItems.includes(frame), false);
+  assert.equal(root.pageItems.includes(artwork), true);
 });
 
 test('PDF cleanup removes white fills at the bottom of the z-order without bounds matching', () => {
@@ -352,7 +376,48 @@ test('a loose outlined white shape such as a box-plot box survives cleanup', () 
   assert.equal(result.ok, true);
   const info = JSON.parse((result as { data: string }).data);
   assert.equal(info.removedBackgrounds, 0);
+  assert.equal(info.keptWhiteShapes, 1);
   assert.equal(document.pageItems.includes(box), true);
+});
+
+test('zero-width strokes count as unstroked so white backgrounds get removed', () => {
+  const white = path([0, 100, 100, 0], {
+    filled: true,
+    fillColor: { typename: 'RGBColor', red: 255, green: 255, blue: 255 },
+    stroked: true,
+    strokeWidth: 0
+  });
+  const artwork = path([10, 90, 90, 10], { stroked: true, strokeWidth: 1 });
+  const { document, call } = fixture([white, artwork]);
+  for (const item of [white, artwork]) {
+    item.remove = () => {
+      const index = document.pageItems.indexOf(item);
+      if (index >= 0) document.pageItems.splice(index, 1);
+      item.parent = null;
+    };
+  }
+
+  const result = call('cleanupPdfSelection');
+  assert.equal(result.ok, true);
+  const info = JSON.parse((result as { data: string }).data);
+  assert.equal(info.removedBackgrounds, 1);
+  assert.equal(info.keptWhiteShapes, undefined);
+  assert.equal(document.pageItems.includes(white), false);
+  assert.equal(document.pageItems.includes(artwork), true);
+});
+
+test('an unpainted path with a zero-width stroke still counts as empty', () => {
+  const bare = path([10, 90, 20, 80], { stroked: true, strokeWidth: 0 });
+  const artwork = path([0, 100, 100, 0], { stroked: true, strokeWidth: 1 });
+  const root = group([artwork, bare]);
+  const { call } = fixture([root]);
+
+  const result = call('cleanupPdfSelection');
+  assert.equal(result.ok, true);
+  const info = JSON.parse((result as { data: string }).data);
+  assert.equal(info.removedPaths, 1);
+  assert.equal(root.pageItems.includes(bare), false);
+  assert.equal(root.pageItems.includes(artwork), true);
 });
 
 test('PDF cleanup skips artwork under a locked ancestor instead of failing', () => {
